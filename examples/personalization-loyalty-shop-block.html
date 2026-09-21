@@ -66,6 +66,7 @@
       success: data.success,
       message: data.message || '',
       couponApplied: data.couponApplied,
+      couponPending: data.couponPending,
       hasDiscountCode: Boolean(data.discountCode || data.discount_code),
       hasCartUrl: Boolean(data.cartUrl),
       hasCheckoutUrl: Boolean(data.checkoutUrl)
@@ -181,7 +182,11 @@
       if (action === 'discount') {
         var code = data.discountCode || data.discount_code || '';
         button.textContent = code ? 'Code: ' + code : 'Cadeaukaart geactiveerd';
-        notify(code ? 'Cadeaukaart geactiveerd en toegepast: ' + code : 'Cadeaukaart geactiveerd.', true);
+        if (data.couponApplied) {
+          notify(code ? 'Cadeaukaart geactiveerd en toegepast: ' + code : 'Cadeaukaart geactiveerd en toegepast.', true);
+        } else {
+          notify('Cadeaukaart geactiveerd. De korting wordt automatisch toegepast zodra je een product toevoegt.', true);
+        }
         debug('discount completed', summarizeResponse(data));
         window.setTimeout(function () {
           debug('redirecting to cart', { cartUrl: config.cartUrl || '/cart/' });

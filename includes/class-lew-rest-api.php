@@ -158,10 +158,11 @@ class LEW_Rest_API
         );
 
         self::maybe_store_discount_code($sku, $customer->user_email, $response);
-        $coupon_applied = self::maybe_create_coupon($sku, $customer->user_email, $reward, $response);
+        $coupon_result = self::maybe_create_coupon($sku, $customer->user_email, $reward, $response);
 
         $normalized = self::normalize_api_response($response);
-        $normalized['couponApplied'] = $coupon_applied;
+        $normalized['couponApplied'] = $coupon_result['applied'];
+        $normalized['couponPending'] = $coupon_result['pending'];
 
         return new WP_REST_Response($normalized, (int) $response['status']);
     }
@@ -490,12 +491,13 @@ class LEW_Rest_API
         ]);
     }
 
-    private static function maybe_create_coupon(string $sku, string $email, array $reward, array $response): bool
+    private static function maybe_create_coupon(string $sku, string $email, array $reward, array $response): array
     {
+        $result = ['applied' => false, 'pending' => false];
         $body = is_array($response['body']) ? $response['body'] : [];
         $discount_code = (string) ($body['discountCode'] ?? $body['discount_code'] ?? '');
         if ($discount_code === '') {
-            return false;
+            return $result;
         }
 
         $coupon = new WC_Coupon();
@@ -541,28 +543,62 @@ class LEW_Rest_API
 
         try {
             $coupon->save();
-            $coupon_applied = false;
+
             if (function_exists('WC') && WC()->cart instanceof WC_Cart) {
-                $coupon_applied = WC()->cart->has_discount($discount_code) || WC()->cart->apply_coupon($discount_code);
-                if ($coupon_applied) {
-                    WC()->cart->calculate_totals();
+                if (WC()->customer instanceof WC_Customer && WC()->customer->get_billing_email() === '') {
+                    WC()->customer->set_billing_email($email);
                 }
+                $result['applied'] = WC()->cart->has_discount($discount_code) || WC()->cart->apply_coupon($discount_code);
             }
+
+            if ($result['applied']) {
+                self::clear_pending_coupon($email);
+            } else {
+                self::store_pending_coupon($discount_code, $email);
+                $result['pending'] = true;
+            }
+
+            LEW_Storefront::persist_cart_session();
 
             LEW_Logger::info('Created or updated WooCommerce coupon for loyalty reward', [
                 'discount_code' => $discount_code,
                 'coupon_type' => $coupon_type,
                 'amount' => $amount,
                 'email' => $email,
-                'coupon_applied' => $coupon_applied,
+                'coupon_applied' => $result['applied'],
+                'coupon_pending' => $result['pending'],
             ]);
-            return $coupon_applied;
+            return $result;
         } catch (Throwable $throwable) {
             LEW_Logger::error('Failed to create WooCommerce coupon for loyalty reward', [
                 'discount_code' => $discount_code,
                 'message' => $throwable->getMessage(),
             ]);
-            return false;
+            return $result;
+        }
+    }
+
+    private static function store_pending_coupon(string $discount_code, string $email): void
+    {
+        if (function_exists('WC') && WC()->session) {
+            WC()->session->set('lew_pending_coupon', $discount_code);
+        }
+
+        $user = get_user_by('email', $email);
+        if ($user instanceof WP_User) {
+            update_user_meta($user->ID, 'lew_pending_coupon', $discount_code);
+        }
+    }
+
+    private static function clear_pending_coupon(string $email): void
+    {
+        if (function_exists('WC') && WC()->session) {
+            WC()->session->set('lew_pending_coupon', null);
+        }
+
+        $user = get_user_by('email', $email);
+        if ($user instanceof WP_User) {
+            delete_user_meta($user->ID, 'lew_pending_coupon');
         }
     }
 
@@ -621,6 +657,8 @@ class LEW_Rest_API
         if (!$cart_item_key) {
             return new WP_Error('lew_add_to_cart_failed', 'Could not add reward product to cart.');
         }
+
+        LEW_Storefront::persist_cart_session();
 
         return [
             'cart_item_key' => $cart_item_key,

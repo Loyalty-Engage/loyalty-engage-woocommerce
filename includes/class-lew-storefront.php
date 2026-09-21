@@ -17,6 +17,8 @@ class LEW_Storefront
         add_action('edit_user_profile', [self::class, 'render_admin_loyalty_profile']);
         add_action('woocommerce_before_calculate_totals', [self::class, 'apply_zero_price_to_loyalty_items'], 20);
         add_action('woocommerce_before_calculate_totals', [self::class, 'enforce_loyalty_cart_rules'], 30);
+        add_action('woocommerce_cart_loaded_from_session', [self::class, 'apply_pending_loyalty_coupon'], 40);
+        add_action('woocommerce_add_to_cart', [self::class, 'apply_pending_loyalty_coupon'], 40);
         add_action('woocommerce_checkout_create_order_line_item', [self::class, 'copy_loyalty_item_meta_to_order'], 20, 4);
         add_action('woocommerce_remove_cart_item', [self::class, 'maybe_release_reserved_loyalty_item'], 20, 2);
     }
@@ -258,6 +260,66 @@ class LEW_Storefront
         }
 
         return null;
+    }
+
+    public static function apply_pending_loyalty_coupon(): void
+    {
+        if (!function_exists('WC') || !WC()->cart instanceof WC_Cart || WC()->cart->is_empty()) {
+            return;
+        }
+
+        $coupon_code = WC()->session ? (string) WC()->session->get('lew_pending_coupon', '') : '';
+        $user_id = get_current_user_id();
+        if ($coupon_code === '' && $user_id > 0) {
+            $coupon_code = (string) get_user_meta($user_id, 'lew_pending_coupon', true);
+        }
+        if ($coupon_code === '') {
+            return;
+        }
+
+        $applied = WC()->cart->has_discount($coupon_code) || WC()->cart->apply_coupon($coupon_code);
+        if (!$applied) {
+            LEW_Logger::warning('Pending loyalty coupon could not be applied yet', [
+                'discount_code' => $coupon_code,
+                'user_id' => $user_id,
+            ]);
+            return;
+        }
+
+        if (WC()->session) {
+            WC()->session->set('lew_pending_coupon', null);
+        }
+        if ($user_id > 0) {
+            delete_user_meta($user_id, 'lew_pending_coupon');
+        }
+
+        self::persist_cart_session();
+        LEW_Logger::info('Pending loyalty coupon applied to cart', [
+            'discount_code' => $coupon_code,
+            'user_id' => $user_id,
+        ]);
+    }
+
+    public static function persist_cart_session(): void
+    {
+        if (!function_exists('WC') || !WC()->session) {
+            return;
+        }
+
+        if (WC()->cart instanceof WC_Cart) {
+            WC()->cart->calculate_totals();
+            WC()->session->set('applied_coupons', WC()->cart->get_applied_coupons());
+            WC()->session->set('coupon_discount_totals', WC()->cart->get_coupon_discount_totals());
+            WC()->session->set('coupon_discount_tax_totals', WC()->cart->get_coupon_discount_tax_totals());
+            WC()->session->set('cart_totals', WC()->cart->get_totals());
+        }
+
+        if (is_callable([WC()->session, 'set_customer_session_cookie'])) {
+            WC()->session->set_customer_session_cookie(true);
+        }
+        if (is_callable([WC()->session, 'save_data'])) {
+            WC()->session->save_data();
+        }
     }
 
     public static function apply_zero_price_to_loyalty_items(WC_Cart $cart): void
