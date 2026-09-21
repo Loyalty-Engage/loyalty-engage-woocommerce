@@ -1,53 +1,44 @@
 <!--
-  Loyalty Engage personalization-engine block for WooCommerce.
-  The engine renders the product loop; the WooCommerce plugin exposes window.lewWooCommerce.
+  Static Loyalty Engage test block for WooCommerce.
+  Replace TEST-GIFTCARD-SKU and TEST-PHYSICAL-SKU with existing Loyalty Engage reward SKUs.
 -->
-<section class="sg-shop" id="loyalty-shop" data-lew-personalization-shop data-cart-subtotal="{{ cartValue or 0 }}">
+<section class="sg-shop" id="loyalty-shop" data-lew-personalization-shop data-cart-subtotal="0">
   <div class="sg-shop-head">
     <div>
       <span class="sg-shop-kicker">Shogun Rewards</span>
       <h2 class="sg-display">Wissel je tegoed in</h2>
-      <p>Beschikbaar saldo: <strong>{{ availableCoins }} coins</strong></p>
+      <p>Testweergave met een cadeaukaart en een fysiek product.</p>
     </div>
   </div>
 
   <div class="sg-shop-grid">
-    {% for product in allAvailableLoyaltyShopProducts() %}
-      <article class="sg-shop-card" data-lew-reward data-lew-type="{{ product.type }}" data-lew-sku="{{ product.sku }}">
-        <div class="sg-shop-image">
-          {% if product.imageUrl %}
-            <img src="{{ product.imageUrl }}" alt="{{ product.title }}">
-          {% elseif product.type == "discount_code" and product.discountPercentage %}
-            <strong>{{ product.discountPercentage }}%</strong>
-          {% elseif product.type == "discount_code" and product.discountAmount %}
-            <strong>{{ product.discountCurrency }} {{ product.discountAmount }}</strong>
-          {% else %}
-            <strong>REWARD</strong>
-          {% endif %}
-        </div>
-
-        <div class="sg-shop-body">
-          <span>{{ product.coinPrice }} coins</span>
-          <h3>{{ product.title }}</h3>
-          {% if product.requiredTierName %}<small>Vanaf {{ product.requiredTierName }}</small>{% endif %}
-
-          {% if product.type == "discount_code" %}
-            <button type="button" class="sg-btn sg-btn-yellow" data-lew-action="discount" data-lew-sku="{{ product.sku }}">
-              Cadeaukaart claimen <span class="sg-arrow">&rarr;</span>
-            </button>
-          {% elseif product.type == "physical" %}
-            <button type="button" class="sg-btn sg-btn-yellow" data-lew-action="physical" data-lew-sku="{{ product.sku }}">
-              Toevoegen aan winkelmand <span class="sg-arrow">&rarr;</span>
-            </button>
-          {% endif %}
-        </div>
-      </article>
-    {% else %}
-      <div class="sg-shop-empty">
-        <h3 class="sg-display">Nieuwe rewards komen eraan.</h3>
-        <p>Er zijn momenteel geen loyalty shop rewards beschikbaar.</p>
+    <article class="sg-shop-card" data-lew-reward data-lew-type="discount_code" data-lew-sku="TEST-GIFTCARD-SKU">
+      <div class="sg-shop-image">
+        <strong>&euro; 10</strong>
       </div>
-    {% endfor %}
+      <div class="sg-shop-body">
+        <span>500 coins</span>
+        <h3>&euro;10 cadeaukaart</h3>
+        <small>Digitale reward</small>
+        <button type="button" class="sg-btn sg-btn-yellow" data-lew-action="discount" data-lew-sku="TEST-GIFTCARD-SKU">
+          Cadeaukaart claimen <span class="sg-arrow">&rarr;</span>
+        </button>
+      </div>
+    </article>
+
+    <article class="sg-shop-card" data-lew-reward data-lew-type="physical" data-lew-sku="TEST-PHYSICAL-SKU">
+      <div class="sg-shop-image">
+        <strong>REWARD</strong>
+      </div>
+      <div class="sg-shop-body">
+        <span>750 coins</span>
+        <h3>Fysiek testproduct</h3>
+        <small>Wordt gratis aan de WooCommerce-winkelmand toegevoegd</small>
+        <button type="button" class="sg-btn sg-btn-yellow" data-lew-action="physical" data-lew-sku="TEST-PHYSICAL-SKU">
+          Toevoegen aan winkelmand <span class="sg-arrow">&rarr;</span>
+        </button>
+      </div>
+    </article>
   </div>
 
   <div class="sg-shop-message" data-lew-message role="status" aria-live="polite"></div>
