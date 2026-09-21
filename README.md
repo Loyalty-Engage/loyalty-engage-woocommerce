@@ -58,7 +58,6 @@ woocommerce-loyalty-engage/
 
 ### Personalization engine storefront
 
-- `examples/personalization-loyalty-shop-block.html` is a static two-card test block that can be loaded by the external personalization engine
 - the plugin exposes `window.lewWooCommerce` with the REST base URL, a WordPress nonce, the logged-in customer ID and cart URLs
 - buttons with `data-lew-action="physical"` reserve the reward and add the matching WooCommerce SKU to the cart
 - buttons with `data-lew-action="discount"` claim the code, create the WooCommerce coupon and apply it to the active cart; for an empty cart the coupon is retained and applied automatically after the first product is added

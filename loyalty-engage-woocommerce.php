@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Loyalty Engage for WooCommerce
  * Description: Loyalty Engage integration for WooCommerce with order export, returns, loyalty rewards, discount redemption and customer sync.
- * Version: 0.1.2
+ * Version: 1.5.4
  * Author: Loyalty Engage B.V.
  * Requires at least: 6.5
  * Requires PHP: 8.1
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('LEW_PLUGIN_VERSION', '0.1.2');
+define('LEW_PLUGIN_VERSION', '1.5.4');
 define('LEW_PLUGIN_FILE', __FILE__);
 define('LEW_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('LEW_PLUGIN_URL', plugin_dir_url(__FILE__));
