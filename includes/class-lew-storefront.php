@@ -25,6 +25,23 @@ class LEW_Storefront
     {
         wp_register_style('lew-loyalty-page', LEW_PLUGIN_URL . 'assets/css/loyalty-page.css', [], LEW_PLUGIN_VERSION);
         wp_register_script('lew-loyalty-page', LEW_PLUGIN_URL . 'assets/js/loyalty-page.js', [], LEW_PLUGIN_VERSION, true);
+        wp_register_script('lew-storefront-bridge', LEW_PLUGIN_URL . 'assets/js/storefront-bridge.js', [], LEW_PLUGIN_VERSION, true);
+
+        if (!LEW_Settings::is_module_enabled()) {
+            return;
+        }
+
+        $user = wp_get_current_user();
+        wp_localize_script('lew-storefront-bridge', 'lewWooCommerce', [
+            'restBase' => esc_url_raw(rest_url('loyalty-engage/v1')),
+            'nonce' => wp_create_nonce('wp_rest'),
+            'customerId' => $user->exists() ? (int) $user->ID : 0,
+            'loggedIn' => $user->exists(),
+            'cartUrl' => esc_url_raw(wc_get_cart_url()),
+            'checkoutUrl' => esc_url_raw(wc_get_checkout_url()),
+            'loginUrl' => esc_url_raw(wc_get_page_permalink('myaccount')),
+        ]);
+        wp_enqueue_script('lew-storefront-bridge');
     }
 
     public static function render_loyalty_page(): string

@@ -55,6 +55,14 @@ woocommerce-loyalty-engage/
 - rewards are fetched from Loyalty Engage
 - rewards are matched against WooCommerce products by SKU, variation id, barcode fallback and title fallback
 - physical rewards are reserved in Loyalty Engage and then added to the WooCommerce cart
+
+### Personalization engine storefront
+
+- `examples/personalization-loyalty-shop-block.html` can be rendered by the external personalization engine
+- the plugin exposes `window.lewWooCommerce` with the REST base URL, a WordPress nonce, the logged-in customer ID and cart URLs
+- buttons with `data-lew-action="physical"` reserve the reward and add the matching WooCommerce SKU to the cart
+- buttons with `data-lew-action="discount"` claim the code, create the WooCommerce coupon and apply it to the active cart
+- client and webhook secrets are never exposed to the browser
 - loyalty cart items are forced to zero price and carry loyalty metadata into the order
 - loyalty account block can expose current tier, points, coins and next-tier data from synced customer meta
 

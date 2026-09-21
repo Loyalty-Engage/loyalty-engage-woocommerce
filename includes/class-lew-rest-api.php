@@ -158,9 +158,12 @@ class LEW_Rest_API
         );
 
         self::maybe_store_discount_code($sku, $customer->user_email, $response);
-        self::maybe_create_coupon($sku, $customer->user_email, $reward, $response);
+        $coupon_applied = self::maybe_create_coupon($sku, $customer->user_email, $reward, $response);
 
-        return new WP_REST_Response(self::normalize_api_response($response), (int) $response['status']);
+        $normalized = self::normalize_api_response($response);
+        $normalized['couponApplied'] = $coupon_applied;
+
+        return new WP_REST_Response($normalized, (int) $response['status']);
     }
 
     public static function redeem_physical(WP_REST_Request $request): WP_REST_Response
@@ -487,12 +490,12 @@ class LEW_Rest_API
         ]);
     }
 
-    private static function maybe_create_coupon(string $sku, string $email, array $reward, array $response): void
+    private static function maybe_create_coupon(string $sku, string $email, array $reward, array $response): bool
     {
         $body = is_array($response['body']) ? $response['body'] : [];
         $discount_code = (string) ($body['discountCode'] ?? $body['discount_code'] ?? '');
         if ($discount_code === '') {
-            return;
+            return false;
         }
 
         $coupon = new WC_Coupon();
@@ -538,17 +541,28 @@ class LEW_Rest_API
 
         try {
             $coupon->save();
+            $coupon_applied = false;
+            if (function_exists('WC') && WC()->cart instanceof WC_Cart) {
+                $coupon_applied = WC()->cart->has_discount($discount_code) || WC()->cart->apply_coupon($discount_code);
+                if ($coupon_applied) {
+                    WC()->cart->calculate_totals();
+                }
+            }
+
             LEW_Logger::info('Created or updated WooCommerce coupon for loyalty reward', [
                 'discount_code' => $discount_code,
                 'coupon_type' => $coupon_type,
                 'amount' => $amount,
                 'email' => $email,
+                'coupon_applied' => $coupon_applied,
             ]);
+            return $coupon_applied;
         } catch (Throwable $throwable) {
             LEW_Logger::error('Failed to create WooCommerce coupon for loyalty reward', [
                 'discount_code' => $discount_code,
                 'message' => $throwable->getMessage(),
             ]);
+            return false;
         }
     }
 

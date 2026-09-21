@@ -1,0 +1,160 @@
+<!--
+  Loyalty Engage personalization-engine block for WooCommerce.
+  The engine renders the product loop; the WooCommerce plugin exposes window.lewWooCommerce.
+-->
+<section class="sg-shop" id="loyalty-shop" data-lew-personalization-shop data-cart-subtotal="{{ cartValue or 0 }}">
+  <div class="sg-shop-head">
+    <div>
+      <span class="sg-shop-kicker">Shogun Rewards</span>
+      <h2 class="sg-display">Wissel je tegoed in</h2>
+      <p>Beschikbaar saldo: <strong>{{ availableCoins }} coins</strong></p>
+    </div>
+  </div>
+
+  <div class="sg-shop-grid">
+    {% for product in allAvailableLoyaltyShopProducts() %}
+      <article class="sg-shop-card" data-lew-reward data-lew-type="{{ product.type }}" data-lew-sku="{{ product.sku }}">
+        <div class="sg-shop-image">
+          {% if product.imageUrl %}
+            <img src="{{ product.imageUrl }}" alt="{{ product.title }}">
+          {% elseif product.type == "discount_code" and product.discountPercentage %}
+            <strong>{{ product.discountPercentage }}%</strong>
+          {% elseif product.type == "discount_code" and product.discountAmount %}
+            <strong>{{ product.discountCurrency }} {{ product.discountAmount }}</strong>
+          {% else %}
+            <strong>REWARD</strong>
+          {% endif %}
+        </div>
+
+        <div class="sg-shop-body">
+          <span>{{ product.coinPrice }} coins</span>
+          <h3>{{ product.title }}</h3>
+          {% if product.requiredTierName %}<small>Vanaf {{ product.requiredTierName }}</small>{% endif %}
+
+          {% if product.type == "discount_code" %}
+            <button type="button" class="sg-btn sg-btn-yellow" data-lew-action="discount" data-lew-sku="{{ product.sku }}">
+              Cadeaukaart claimen <span class="sg-arrow">&rarr;</span>
+            </button>
+          {% elseif product.type == "physical" %}
+            <button type="button" class="sg-btn sg-btn-yellow" data-lew-action="physical" data-lew-sku="{{ product.sku }}">
+              Toevoegen aan winkelmand <span class="sg-arrow">&rarr;</span>
+            </button>
+          {% endif %}
+        </div>
+      </article>
+    {% else %}
+      <div class="sg-shop-empty">
+        <h3 class="sg-display">Nieuwe rewards komen eraan.</h3>
+        <p>Er zijn momenteel geen loyalty shop rewards beschikbaar.</p>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="sg-shop-message" data-lew-message role="status" aria-live="polite"></div>
+</section>
+
+<script>
+(function () {
+  'use strict';
+
+  var root = document.querySelector('[data-lew-personalization-shop]');
+  if (!root || root.dataset.lewBound === 'true') return;
+  root.dataset.lewBound = 'true';
+
+  var message = root.querySelector('[data-lew-message]');
+
+  function notify(text, success) {
+    if (!message) return;
+    message.textContent = text || '';
+    message.classList.toggle('is-success', Boolean(success));
+    message.classList.toggle('is-error', !success);
+  }
+
+  function getConfig() {
+    return window.lewWooCommerce || {};
+  }
+
+  function getError(result, fallback) {
+    if (result && result.message) return result.message;
+    if (result && result.data && result.data.message) return result.data.message;
+    return fallback;
+  }
+
+  function restoreButton(button, label) {
+    button.disabled = false;
+    button.innerHTML = label;
+  }
+
+  root.addEventListener('click', function (event) {
+    var button = event.target.closest('[data-lew-action]');
+    if (!button || !root.contains(button)) return;
+
+    event.preventDefault();
+
+    var config = getConfig();
+    if (!config.loggedIn || !config.customerId) {
+      window.location.href = config.loginUrl || '/my-account/';
+      return;
+    }
+
+    if (!config.restBase || !config.nonce) {
+      notify('De WooCommerce-koppeling is nog niet geladen. Vernieuw de pagina en probeer opnieuw.', false);
+      return;
+    }
+
+    var sku = button.dataset.lewSku || '';
+    var action = button.dataset.lewAction;
+    if (!sku || (action !== 'discount' && action !== 'physical')) {
+      notify('Deze reward mist een geldig type of SKU.', false);
+      return;
+    }
+
+    var originalLabel = button.innerHTML;
+    var endpoint = action === 'discount' ? '/discount/' : '/physical-redeem/';
+    var url = config.restBase.replace(/\/$/, '') + endpoint + encodeURIComponent(sku) + '/' + encodeURIComponent(config.customerId);
+    var body = {
+      cartSubtotal: Number(root.dataset.cartSubtotal || 0)
+    };
+
+    button.disabled = true;
+    button.textContent = 'Bezig...';
+    notify('', true);
+
+    fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-WP-Nonce': config.nonce
+      },
+      body: JSON.stringify(body)
+    }).then(function (response) {
+      return response.json().catch(function () { return {}; }).then(function (data) {
+        if (!response.ok || data.success === false) {
+          throw data;
+        }
+        return data;
+      });
+    }).then(function (data) {
+      if (action === 'discount') {
+        var code = data.discountCode || data.discount_code || '';
+        button.textContent = code ? 'Code: ' + code : 'Cadeaukaart geactiveerd';
+        notify(code ? 'Cadeaukaart geactiveerd en toegepast: ' + code : 'Cadeaukaart geactiveerd.', true);
+        window.setTimeout(function () {
+          window.location.href = config.cartUrl || '/cart/';
+        }, 900);
+        return;
+      }
+
+      button.textContent = 'Toegevoegd';
+      notify('Reward is gereserveerd en toegevoegd aan je winkelmand.', true);
+      window.setTimeout(function () {
+        window.location.href = data.cartUrl || config.cartUrl || '/cart/';
+      }, 900);
+    }).catch(function (error) {
+      restoreButton(button, originalLabel);
+      notify(getError(error, 'De reward kon niet worden verwerkt. Probeer het opnieuw.'), false);
+    });
+  });
+})();
+</script>
