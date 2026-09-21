@@ -91,8 +91,13 @@ class LEW_Settings
     {
         $defaults = self::defaults();
         $merged = wp_parse_args($settings, $defaults);
+        $current = (array) get_option(self::OPTION_KEY, []);
         $is_enabled = static function ($value): string {
             return in_array($value, [1, '1', true, 'true', 'yes', 'on'], true) ? 'yes' : 'no';
+        };
+        $sanitize_secret = static function ($value): string {
+            // Secrets are opaque values: HTML/text sanitizers can corrupt valid characters such as "<".
+            return trim(str_replace(["\r", "\n", "\0"], '', (string) $value));
         };
         $sanitize_decimal = static function ($value): string {
             $number = is_numeric($value) ? (float) $value : 0.0;
@@ -106,12 +111,22 @@ class LEW_Settings
             $api_base_url = $defaults['api_base_url'];
         }
 
+        $client_secret = $sanitize_secret($merged['client_secret']);
+        if ($client_secret === '' && !empty($current['client_secret'])) {
+            $client_secret = (string) $current['client_secret'];
+        }
+
+        $webhook_secret = $sanitize_secret($merged['webhook_secret']);
+        if ($webhook_secret === '' && !empty($current['webhook_secret'])) {
+            $webhook_secret = (string) $current['webhook_secret'];
+        }
+
         return [
             'module_enabled' => $is_enabled($merged['module_enabled']),
             'api_base_url' => untrailingslashit($api_base_url),
             'client_id' => sanitize_text_field((string) $merged['client_id']),
-            'client_secret' => sanitize_text_field((string) $merged['client_secret']),
-            'webhook_secret' => sanitize_text_field((string) $merged['webhook_secret']),
+            'client_secret' => $client_secret,
+            'webhook_secret' => $webhook_secret,
             'logger_enabled' => $is_enabled($merged['logger_enabled']),
             'order_export_enabled' => $is_enabled($merged['order_export_enabled']),
             'purchase_export_statuses' => sanitize_text_field((string) $merged['purchase_export_statuses']),
@@ -185,13 +200,16 @@ class LEW_Settings
                     </tr>
                     <tr>
                         <th scope="row"><label for="lew-client-secret">Client Secret</label></th>
-                        <td><input id="lew-client-secret" name="<?php echo esc_attr(self::OPTION_KEY); ?>[client_secret]" value="<?php echo esc_attr($settings['client_secret']); ?>" class="regular-text"></td>
+                        <td>
+                            <input type="password" id="lew-client-secret" name="<?php echo esc_attr(self::OPTION_KEY); ?>[client_secret]" value="" class="regular-text" autocomplete="new-password">
+                            <p class="description"><?php echo $settings['client_secret'] !== '' ? 'A client secret is configured. Leave blank to keep it unchanged.' : 'Enter the Loyalty Engage client secret.'; ?></p>
+                        </td>
                     </tr>
                     <tr>
                         <th scope="row"><label for="lew-webhook-secret">Webhook Secret</label></th>
                         <td>
-                            <input id="lew-webhook-secret" name="<?php echo esc_attr(self::OPTION_KEY); ?>[webhook_secret]" value="<?php echo esc_attr($settings['webhook_secret']); ?>" class="regular-text">
-                            <p class="description">Used to verify inbound Loyalty Engage callbacks such as customer updates.</p>
+                            <input type="password" id="lew-webhook-secret" name="<?php echo esc_attr(self::OPTION_KEY); ?>[webhook_secret]" value="" class="regular-text" autocomplete="new-password">
+                            <p class="description"><?php echo $settings['webhook_secret'] !== '' ? 'A webhook secret is configured. Leave blank to keep it unchanged. ' : ''; ?>Used to verify inbound Loyalty Engage callbacks such as customer updates.</p>
                         </td>
                     </tr>
                     <tr>
