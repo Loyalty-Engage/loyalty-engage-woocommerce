@@ -13,6 +13,8 @@ class LEW_Storefront
     {
         add_shortcode('loyalty_engage_page', [self::class, 'render_loyalty_page']);
         add_action('wp_enqueue_scripts', [self::class, 'register_assets']);
+        add_action('show_user_profile', [self::class, 'render_admin_loyalty_profile']);
+        add_action('edit_user_profile', [self::class, 'render_admin_loyalty_profile']);
         add_action('woocommerce_before_calculate_totals', [self::class, 'apply_zero_price_to_loyalty_items'], 20);
         add_action('woocommerce_before_calculate_totals', [self::class, 'enforce_loyalty_cart_rules'], 30);
         add_action('woocommerce_checkout_create_order_line_item', [self::class, 'copy_loyalty_item_meta_to_order'], 20, 4);
@@ -359,15 +361,7 @@ class LEW_Storefront
             return [];
         }
 
-        $fields = [
-            'current_tier' => ['meta' => 'lew_current_tier', 'enabled' => 'le_current_tier_enabled', 'label' => 'le_current_tier_label'],
-            'points' => ['meta' => 'lew_points', 'enabled' => 'le_points_enabled', 'label' => 'le_points_label'],
-            'available_coins' => ['meta' => 'lew_availableCoins', 'enabled' => 'le_available_coins_enabled', 'label' => 'le_available_coins_label'],
-            'next_tier' => ['meta' => 'lew_next_tier', 'enabled' => 'le_next_tier_enabled', 'label' => 'le_next_tier_label'],
-            'points_to_next_tier' => ['meta' => 'lew_points_to_next_tier', 'enabled' => 'le_points_to_next_tier_enabled', 'label' => 'le_points_to_next_tier_label'],
-            'reserved_coins' => ['meta' => 'lew_reserved_coins', 'enabled' => 'le_reserved_coins_enabled', 'label' => 'le_reserved_coins_label'],
-            'expiring_points_30d' => ['meta' => 'lew_expiring_points_30d', 'enabled' => 'le_expiring_points_30d_enabled', 'label' => 'le_expiring_points_30d_label'],
-        ];
+        $fields = self::get_loyalty_field_definitions();
 
         $rows = [];
         foreach ($fields as $field) {
@@ -387,6 +381,41 @@ class LEW_Storefront
         }
 
         return $rows;
+    }
+
+    public static function render_admin_loyalty_profile(WP_User $user): void
+    {
+        if (!current_user_can('manage_woocommerce') && !current_user_can('edit_users')) {
+            return;
+        }
+
+        $settings = LEW_Settings::get_settings();
+        ?>
+        <h2>Loyalty Engage</h2>
+        <p>Deze gegevens worden beheerd door Loyalty Engage en zijn daarom alleen-lezen.</p>
+        <table class="widefat striped" style="max-width: 900px; margin-bottom: 24px;">
+            <thead>
+                <tr>
+                    <th scope="col">Veld</th>
+                    <th scope="col">Meta-key</th>
+                    <th scope="col">Waarde</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach (self::get_loyalty_field_definitions() as $field) : ?>
+                    <?php
+                    $value = self::get_customer_loyalty_value((int) $user->ID, $field['meta']);
+                    $display_value = is_scalar($value) ? (string) $value : wp_json_encode($value);
+                    ?>
+                    <tr>
+                        <th scope="row"><?php echo esc_html((string) ($settings[$field['label']] ?? $field['meta'])); ?></th>
+                        <td><code><?php echo esc_html($field['meta']); ?></code></td>
+                        <td><?php echo $display_value !== '' ? esc_html($display_value) : '<em>Nog geen data ontvangen</em>'; ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php
     }
 
     public static function get_customer_loyalty_value(int $user_id, string $canonical_key)
@@ -410,6 +439,19 @@ class LEW_Storefront
         }
 
         return '';
+    }
+
+    private static function get_loyalty_field_definitions(): array
+    {
+        return [
+            'current_tier' => ['meta' => 'lew_current_tier', 'enabled' => 'le_current_tier_enabled', 'label' => 'le_current_tier_label'],
+            'points' => ['meta' => 'lew_points', 'enabled' => 'le_points_enabled', 'label' => 'le_points_label'],
+            'available_coins' => ['meta' => 'lew_availableCoins', 'enabled' => 'le_available_coins_enabled', 'label' => 'le_available_coins_label'],
+            'next_tier' => ['meta' => 'lew_next_tier', 'enabled' => 'le_next_tier_enabled', 'label' => 'le_next_tier_label'],
+            'points_to_next_tier' => ['meta' => 'lew_points_to_next_tier', 'enabled' => 'le_points_to_next_tier_enabled', 'label' => 'le_points_to_next_tier_label'],
+            'reserved_coins' => ['meta' => 'lew_reserved_coins', 'enabled' => 'le_reserved_coins_enabled', 'label' => 'le_reserved_coins_label'],
+            'expiring_points_30d' => ['meta' => 'lew_expiring_points_30d', 'enabled' => 'le_expiring_points_30d_enabled', 'label' => 'le_expiring_points_30d_label'],
+        ];
     }
 
     private static function format_wc_product_match(WC_Product $product, string $fallback_sku = ''): array
