@@ -71,7 +71,8 @@ woocommerce-loyalty-engage/
 - returned reward codes are stored locally
 - delivery can be configured as a WooCommerce cart coupon or a Loyalty Engage e-mail gift card
 - e-mail gift card mode does not create or apply a WooCommerce coupon; the voucher value is configured on the Loyalty Engage reward
-- successful e-mail gift card responses instruct personalization frontends to remain on the page instead of opening the cart
+- existing personalization JavaScript remains compatible: in e-mail gift card mode its configured cart redirect remains on the loyalty shop page
+- the real WooCommerce cart URL remains available to new personalization blocks as `window.lewWooCommerce.actualCartUrl`
 - in WooCommerce coupon mode, a matching coupon is created or updated automatically
 - order completion marks claimed Loyalty Engage discount codes as redeemed
 - points redemption can preview discount, redeem points to a WooCommerce coupon and remove the active points coupon again
@@ -109,6 +110,7 @@ Admin page:
 - Return export toggle
 - Review export toggle
 - Customer sync toggle
+- Discount reward delivery mode
 - Max loyalty products per cart
 - Minimum non-loyalty subtotal
 - Minimum subtotal error messages

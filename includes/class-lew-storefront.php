@@ -34,12 +34,20 @@ class LEW_Storefront
         }
 
         $user = wp_get_current_user();
+        $settings = LEW_Settings::get_settings();
+        $discount_reward_mode = $settings['discount_reward_mode'] ?? 'woocommerce_coupon';
+        $cart_url = esc_url_raw(wc_get_cart_url());
+
         wp_localize_script('lew-storefront-bridge', 'lewWooCommerce', [
             'restBase' => esc_url_raw(rest_url('loyalty-engage/v1')),
             'nonce' => wp_create_nonce('wp_rest'),
             'customerId' => $user->exists() ? (int) $user->ID : 0,
             'loggedIn' => $user->exists(),
-            'cartUrl' => esc_url_raw(wc_get_cart_url()),
+            // Existing personalization blocks redirect to cartUrl after a claim.
+            // Keep them on the loyalty shop when the voucher is delivered by e-mail.
+            'cartUrl' => $discount_reward_mode === 'email_gift_card' ? '#loyalty-shop' : $cart_url,
+            'actualCartUrl' => $cart_url,
+            'discountRewardMode' => $discount_reward_mode,
             'checkoutUrl' => esc_url_raw(wc_get_checkout_url()),
             'loginUrl' => esc_url_raw(wc_get_page_permalink('myaccount')),
         ]);
