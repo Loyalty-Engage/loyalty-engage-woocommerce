@@ -127,6 +127,12 @@
           return;
         }
 
+        if (type === 'discount' && result.data.deliveryMode === 'email_gift_card') {
+          btn.textContent = 'Per e-mail verzonden';
+          showMessage(result.data.message || 'Je cadeaukaart wordt per e-mail verzonden.', true);
+          return;
+        }
+
         if (type === 'discount' && result.data.discountCode) {
           btn.textContent = result.data.discountCode;
           showMessage('Kortingscode opgehaald en opgeslagen.', true);

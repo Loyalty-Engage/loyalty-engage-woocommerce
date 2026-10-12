@@ -28,6 +28,7 @@ class LEW_Settings
             'return_export_enabled' => 'yes',
             'review_export_enabled' => 'no',
             'customer_sync_enabled' => 'yes',
+            'discount_reward_mode' => 'woocommerce_coupon',
             'max_loyalty_products_per_cart' => '0',
             'minimum_order_value' => '0',
             'minimum_order_value_message' => 'Je winkelmand moet minimaal {{minimum}} zijn om loyalty rewards toe te voegen. Huidig subtotaal: {{current}}.',
@@ -133,6 +134,9 @@ class LEW_Settings
             'return_export_enabled' => $is_enabled($merged['return_export_enabled']),
             'review_export_enabled' => $is_enabled($merged['review_export_enabled']),
             'customer_sync_enabled' => $is_enabled($merged['customer_sync_enabled']),
+            'discount_reward_mode' => in_array($merged['discount_reward_mode'], ['woocommerce_coupon', 'email_gift_card'], true)
+                ? $merged['discount_reward_mode']
+                : $defaults['discount_reward_mode'],
             'max_loyalty_products_per_cart' => $sanitize_int($merged['max_loyalty_products_per_cart']),
             'minimum_order_value' => $sanitize_decimal($merged['minimum_order_value']),
             'minimum_order_value_message' => sanitize_textarea_field((string) $merged['minimum_order_value_message']),
@@ -227,6 +231,16 @@ class LEW_Settings
                         <td>
                             <input id="lew-purchase-export-statuses" name="<?php echo esc_attr(self::OPTION_KEY); ?>[purchase_export_statuses]" value="<?php echo esc_attr($settings['purchase_export_statuses']); ?>" class="regular-text" placeholder="processing,completed">
                             <p class="description">Comma separated WooCommerce order statuses that should trigger purchase export.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="lew-discount-reward-mode">Discount reward delivery</label></th>
+                        <td>
+                            <select id="lew-discount-reward-mode" name="<?php echo esc_attr(self::OPTION_KEY); ?>[discount_reward_mode]">
+                                <option value="woocommerce_coupon" <?php selected($settings['discount_reward_mode'], 'woocommerce_coupon'); ?>>WooCommerce coupon (apply to cart)</option>
+                                <option value="email_gift_card" <?php selected($settings['discount_reward_mode'], 'email_gift_card'); ?>>E-mail gift card (do not add to cart)</option>
+                            </select>
+                            <p class="description">In e-mail gift card mode, Loyalty Engage creates and delivers the voucher. WooCommerce does not create or apply a coupon. Configure the voucher value, for example &euro;25, on the Loyalty Engage reward.</p>
                         </td>
                     </tr>
                     <tr>

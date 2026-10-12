@@ -158,11 +158,33 @@ class LEW_Rest_API
         );
 
         self::maybe_store_discount_code($sku, $customer->user_email, $response);
-        $coupon_result = self::maybe_create_coupon($sku, $customer->user_email, $reward, $response);
-
         $normalized = self::normalize_api_response($response);
-        $normalized['couponApplied'] = $coupon_result['applied'];
-        $normalized['couponPending'] = $coupon_result['pending'];
+        $settings = LEW_Settings::get_settings();
+        $delivery_mode = (string) ($settings['discount_reward_mode'] ?? 'woocommerce_coupon');
+
+        if ($delivery_mode === 'email_gift_card') {
+            $normalized['deliveryMode'] = 'email_gift_card';
+            $normalized['giftCardEmailed'] = !empty($response['success']);
+            $normalized['couponApplied'] = false;
+            $normalized['couponPending'] = false;
+            $normalized['redirectToCart'] = false;
+
+            if (!empty($response['success'])) {
+                unset($normalized['discountCode'], $normalized['discount_code'], $normalized['code']);
+                $normalized['message'] = 'Je cadeaukaart wordt per e-mail verzonden.';
+                LEW_Logger::info('Loyalty Engage e-mail gift card created', [
+                    'sku' => $sku,
+                    'email' => $customer->user_email,
+                ]);
+            }
+        } else {
+            $coupon_result = self::maybe_create_coupon($sku, $customer->user_email, $reward, $response);
+            $normalized['deliveryMode'] = 'woocommerce_coupon';
+            $normalized['giftCardEmailed'] = false;
+            $normalized['couponApplied'] = $coupon_result['applied'];
+            $normalized['couponPending'] = $coupon_result['pending'];
+            $normalized['redirectToCart'] = true;
+        }
 
         return new WP_REST_Response($normalized, (int) $response['status']);
     }

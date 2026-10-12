@@ -69,7 +69,10 @@ woocommerce-loyalty-engage/
 
 - discount reward claims call Loyalty Engage
 - returned reward codes are stored locally
-- a matching WooCommerce coupon is created or updated automatically
+- delivery can be configured as a WooCommerce cart coupon or a Loyalty Engage e-mail gift card
+- e-mail gift card mode does not create or apply a WooCommerce coupon; the voucher value is configured on the Loyalty Engage reward
+- successful e-mail gift card responses instruct personalization frontends to remain on the page instead of opening the cart
+- in WooCommerce coupon mode, a matching coupon is created or updated automatically
 - order completion marks claimed Loyalty Engage discount codes as redeemed
 - points redemption can preview discount, redeem points to a WooCommerce coupon and remove the active points coupon again
 
