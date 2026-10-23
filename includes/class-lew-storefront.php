@@ -43,6 +43,11 @@ class LEW_Storefront
             'nonce' => wp_create_nonce('wp_rest'),
             'customerId' => $user->exists() ? (int) $user->ID : 0,
             'loggedIn' => $user->exists(),
+            'availableCoins' => $user->exists() ? (int) self::get_customer_loyalty_value($user->ID, 'lew_availableCoins') : 0,
+            'points' => $user->exists() ? (int) self::get_customer_loyalty_value($user->ID, 'lew_points') : 0,
+            'currentTier' => $user->exists() ? (string) self::get_customer_loyalty_value($user->ID, 'lew_current_tier') : '',
+            'nextTier' => $user->exists() ? (string) self::get_customer_loyalty_value($user->ID, 'lew_next_tier') : '',
+            'pointsToNextTier' => $user->exists() ? (int) self::get_customer_loyalty_value($user->ID, 'lew_points_to_next_tier') : 0,
             // Existing personalization blocks redirect to cartUrl after a claim.
             // Keep them on the loyalty shop when the voucher is delivered by e-mail.
             'cartUrl' => $discount_reward_mode === 'email_gift_card' ? '#loyalty-shop' : $cart_url,
@@ -70,11 +75,15 @@ class LEW_Storefront
         wp_add_inline_script('lew-loyalty-page', 'window.lewRestNonce = ' . wp_json_encode(wp_create_nonce('wp_rest')) . ';', 'before');
 
         return sprintf(
-            '<div id="lew-loyalty-page" data-customer-id="%1$d" data-customer-email="%2$s" data-api-base="%3$s" data-coins="%4$s"><div id="lew-meta-block">%5$s</div><div id="lew-points-block">%6$s</div><div class="lew-section"><h2>Rewards</h2><div id="lew-rewards-grid"><p>Producten laden...</p></div></div><div class="lew-section"><h2>Physical rewards</h2><div id="lew-physical-grid"><p>Producten laden...</p></div></div><div id="lew-message" class="lew-message" aria-live="polite"></div></div>',
+            '<div id="lew-loyalty-page" data-customer-id="%1$d" data-customer-email="%2$s" data-api-base="%3$s" data-coins="%4$s" data-points="%5$s" data-current-tier="%6$s" data-next-tier="%7$s" data-points-to-next-tier="%8$s"><div id="lew-meta-block">%9$s</div><div id="lew-points-block">%10$s</div><div id="lew-levels-section" class="lew-section" hidden><h2>Jouw levels</h2><p class="lew-section__intro">Bekijk welke levels je al hebt bereikt en welke nog voor je liggen.</p><div id="lew-levels" class="lew-levels"></div></div><div class="lew-section"><h2>Cadeaus en cadeaubonnen</h2><p class="lew-section__intro">Ontdek alle rewards, ook wanneer je nog coins of een hoger level nodig hebt.</p><div id="lew-rewards-grid" class="lew-rewards-grid"><p>Rewards laden...</p></div></div><div id="lew-message" class="lew-message" aria-live="polite"></div></div>',
             (int) $user->ID,
             esc_attr($user->user_email),
             esc_url(rest_url('loyalty-engage/v1')),
-            esc_attr((string) get_user_meta($user->ID, 'lew_availableCoins', true)),
+            esc_attr((string) self::get_customer_loyalty_value($user->ID, 'lew_availableCoins')),
+            esc_attr((string) self::get_customer_loyalty_value($user->ID, 'lew_points')),
+            esc_attr((string) self::get_customer_loyalty_value($user->ID, 'lew_current_tier')),
+            esc_attr((string) self::get_customer_loyalty_value($user->ID, 'lew_next_tier')),
+            esc_attr((string) self::get_customer_loyalty_value($user->ID, 'lew_points_to_next_tier')),
             self::render_loyalty_meta_block($user->ID),
             self::render_points_redemption_block($user->ID)
         );

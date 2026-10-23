@@ -54,11 +54,16 @@ woocommerce-loyalty-engage/
 - frontend page uses shortcode `[loyalty_engage_page]`
 - rewards are fetched from Loyalty Engage
 - rewards are matched against WooCommerce products by SKU, variation id, barcode fallback and title fallback
+- gift cards and physical gifts are presented together in one rewards overview with clear type labels
+- rewards remain visible when the customer still needs more coins or a higher loyalty level
+- current, achieved and upcoming loyalty levels are shown as level badges based on synced customer data and reward thresholds
 - physical rewards are reserved in Loyalty Engage and then added to the WooCommerce cart
 
 ### Personalization engine storefront
 
-- the plugin exposes `window.lewWooCommerce` with the REST base URL, a WordPress nonce, the logged-in customer ID and cart URLs
+- the plugin exposes `window.lewWooCommerce` with the REST base URL, a WordPress nonce, customer ID, loyalty balance, current/next level and cart URLs
+- personalization markup can declare levels with `data-lew-level` and `data-lew-required-points`; the storefront bridge marks current, achieved and locked levels automatically
+- reward cards can declare `data-lew-coin-price`, `data-lew-required-tier` and `data-lew-required-points`; unavailable cards remain visible and are disabled automatically
 - buttons with `data-lew-action="physical"` reserve the reward and add the matching WooCommerce SKU to the cart
 - buttons with `data-lew-action="discount"` claim the code, create the WooCommerce coupon and apply it to the active cart; for an empty cart the coupon is retained and applied automatically after the first product is added
 - client and webhook secrets are never exposed to the browser

@@ -8,6 +8,10 @@
   var customerId = el.dataset.customerId || '';
   var customerEmail = el.dataset.customerEmail || '';
   var availableCoins = parseInt(el.dataset.coins || '0', 10) || 0;
+  var customerPoints = parseInt(el.dataset.points || '0', 10) || 0;
+  var currentTier = el.dataset.currentTier || '';
+  var nextTier = el.dataset.nextTier || '';
+  var pointsToNextTier = parseInt(el.dataset.pointsToNextTier || '0', 10) || 0;
   var nonce = window.lewRestNonce || '';
   var messageEl = document.getElementById('lew-message');
   var pointsInput = document.getElementById('lew-points-input');
@@ -75,23 +79,119 @@
     return '';
   }
 
-  function renderCard(container, reward, type) {
+  function normalizeTier(value) {
+    return String(value || '').trim().toLowerCase();
+  }
+
+  function collectLevels(rewards) {
+    var levelsByName = {};
+
+    function addLevel(name, requiredPoints) {
+      var cleanName = String(name || '').trim();
+      if (!cleanName) return;
+
+      var key = normalizeTier(cleanName);
+      var points = parseInt(requiredPoints || '0', 10) || 0;
+      if (!levelsByName[key]) {
+        levelsByName[key] = { name: cleanName, requiredPoints: points };
+      } else if (points > 0 && (levelsByName[key].requiredPoints === 0 || points < levelsByName[key].requiredPoints)) {
+        levelsByName[key].requiredPoints = points;
+      }
+    }
+
+    rewards.forEach(function (reward) {
+      var loyalty = reward.loyalty || {};
+      addLevel(loyalty.requiredTier, loyalty.requiredPoints);
+    });
+
+    addLevel(currentTier, customerPoints);
+    addLevel(nextTier, pointsToNextTier > 0 ? customerPoints + pointsToNextTier : 0);
+
+    var levels = Object.keys(levelsByName).map(function (key) {
+      return levelsByName[key];
+    });
+
+    levels.sort(function (left, right) {
+      if (left.requiredPoints === right.requiredPoints) {
+        if (normalizeTier(left.name) === normalizeTier(currentTier)) return -1;
+        if (normalizeTier(right.name) === normalizeTier(currentTier)) return 1;
+        return left.name.localeCompare(right.name);
+      }
+      if (left.requiredPoints === 0) return -1;
+      if (right.requiredPoints === 0) return 1;
+      return left.requiredPoints - right.requiredPoints;
+    });
+
+    return levels;
+  }
+
+  function hasReachedTier(requiredTier, requiredPoints, levels) {
+    if (!requiredTier) return true;
+    if (normalizeTier(requiredTier) === normalizeTier(currentTier)) return true;
+
+    var currentIndex = levels.findIndex(function (level) {
+      return normalizeTier(level.name) === normalizeTier(currentTier);
+    });
+    var requiredIndex = levels.findIndex(function (level) {
+      return normalizeTier(level.name) === normalizeTier(requiredTier);
+    });
+
+    if (currentIndex >= 0 && requiredIndex >= 0) {
+      return currentIndex >= requiredIndex;
+    }
+
+    return requiredPoints > 0 && customerPoints >= requiredPoints;
+  }
+
+  function renderLevels(levels) {
+    var section = document.getElementById('lew-levels-section');
+    var container = document.getElementById('lew-levels');
+    if (!section || !container || levels.length === 0) return;
+
+    var currentIndex = levels.findIndex(function (level) {
+      return normalizeTier(level.name) === normalizeTier(currentTier);
+    });
+
+    container.innerHTML = '';
+    levels.forEach(function (level, index) {
+      var isCurrent = normalizeTier(level.name) === normalizeTier(currentTier);
+      var isReached = isCurrent || (level.requiredPoints > 0 && customerPoints >= level.requiredPoints) || (currentIndex >= 0 && index <= currentIndex);
+      var badge = document.createElement('div');
+      badge.className = 'lew-level' + (isReached ? ' is-reached' : ' is-locked') + (isCurrent ? ' is-current' : '');
+      badge.innerHTML =
+        '<span class="lew-level__icon" aria-hidden="true">' + (isReached ? '&#10003;' : '&#128274;') + '</span>' +
+        '<span class="lew-level__content"><strong>' + level.name + '</strong>' +
+        '<small>' + (isCurrent ? 'Huidig level' : (isReached ? 'Behaald' : (level.requiredPoints > 0 ? 'Vanaf ' + level.requiredPoints + ' punten' : 'Nog niet behaald'))) + '</small></span>';
+      container.appendChild(badge);
+    });
+
+    section.hidden = false;
+  }
+
+  function renderCard(container, reward, type, levels) {
     var title = (reward.shopify && reward.shopify.title) || (reward.loyalty && reward.loyalty.title) || 'Reward';
     var coins = parseInt((reward.loyalty && reward.loyalty.coinPrice) || 0, 10) || 0;
     var image = (reward.loyalty && reward.loyalty.imageUrl) || (reward.shopify && reward.shopify.image) || '';
     var sku = (reward.loyalty && reward.loyalty.sku) || '';
     var requiredTier = (reward.loyalty && reward.loyalty.requiredTier) || '';
+    var requiredPoints = parseInt((reward.loyalty && reward.loyalty.requiredPoints) || 0, 10) || 0;
     var canAfford = availableCoins >= coins;
-    var buttonText = type === 'discount' ? 'Claim korting' : 'Voeg reward toe';
+    var tierReached = hasReachedTier(requiredTier, requiredPoints, levels);
+    var isAvailable = canAfford && tierReached;
+    var buttonText = type === 'discount' ? 'Cadeaubon claimen' : 'Cadeau kiezen';
+    var lockedText = !tierReached
+      ? 'Beschikbaar vanaf ' + requiredTier
+      : 'Nog ' + Math.max(0, coins - availableCoins) + ' coins nodig';
 
     var card = document.createElement('div');
-    card.className = 'lew-card' + (canAfford ? '' : ' is-locked');
+    card.className = 'lew-card' + (isAvailable ? '' : ' is-locked');
     card.innerHTML =
       (image ? '<img src="' + image + '" alt="' + title + '">' : '') +
+      '<span class="lew-card__type">' + (type === 'discount' ? 'Cadeaubon' : 'Fysiek cadeau') + '</span>' +
       '<h3>' + title + '</h3>' +
       '<p class="lew-card__meta">' + coins + ' coins' + (requiredTier ? ' • ' + requiredTier : '') + '</p>' +
       buildVariantSelect(reward) +
-      '<button ' + (canAfford ? '' : 'disabled') + '>' + buttonText + '</button>';
+      '<button ' + (isAvailable ? '' : 'disabled') + '>' + (isAvailable ? buttonText : lockedText) + '</button>';
 
     var btn = card.querySelector('button');
     btn.addEventListener('click', function () {
@@ -246,38 +346,32 @@
     headers: { 'X-WP-Nonce': nonce }
   }).then(function (result) {
     var rewardsGrid = document.getElementById('lew-rewards-grid');
-    var physicalGrid = document.getElementById('lew-physical-grid');
-    if (!rewardsGrid || !physicalGrid) return;
+    if (!rewardsGrid) return;
 
     rewardsGrid.innerHTML = '';
-    physicalGrid.innerHTML = '';
 
     if (!result.ok || !result.data || !Array.isArray(result.data.matchedProducts)) {
       showMessage((result.data && result.data.message) || 'Kon loyalty producten niet laden.', false);
       rewardsGrid.innerHTML = '<p>Geen rewards beschikbaar.</p>';
-      physicalGrid.innerHTML = '<p>Geen fysieke rewards beschikbaar.</p>';
       return;
     }
 
-    var discounts = 0;
-    var physical = 0;
+    var levels = collectLevels(result.data.matchedProducts);
+    var rewardCount = 0;
+    renderLevels(levels);
 
     result.data.matchedProducts.forEach(function (reward) {
       if (reward.loyalty && reward.loyalty.product_type === 'discount_code') {
-        renderCard(rewardsGrid, reward, 'discount');
-        discounts += 1;
+        renderCard(rewardsGrid, reward, 'discount', levels);
+        rewardCount += 1;
       } else if (reward.loyalty && reward.loyalty.product_type === 'physical') {
-        renderCard(physicalGrid, reward, 'physical');
-        physical += 1;
+        renderCard(rewardsGrid, reward, 'physical', levels);
+        rewardCount += 1;
       }
     });
 
-    if (discounts === 0) {
+    if (rewardCount === 0) {
       rewardsGrid.innerHTML = '<p>Geen rewards beschikbaar.</p>';
-    }
-
-    if (physical === 0) {
-      physicalGrid.innerHTML = '<p>Geen fysieke rewards beschikbaar.</p>';
     }
   }).catch(function () {
     showMessage('Kon loyalty producten niet laden.', false);

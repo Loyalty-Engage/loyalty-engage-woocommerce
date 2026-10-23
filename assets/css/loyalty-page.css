@@ -2,6 +2,67 @@
   margin-bottom: 32px;
 }
 
+.lew-section__intro {
+  margin: -4px 0 18px;
+  color: #5f625f;
+}
+
+.lew-levels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.lew-level {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+  padding: 14px;
+  border: 1px solid #d9ddd7;
+  border-radius: 12px;
+  background: #f4f5f2;
+}
+
+.lew-level.is-reached {
+  border-color: #a7c7a9;
+  background: #edf7ee;
+}
+
+.lew-level.is-current {
+  border-color: #111;
+  box-shadow: inset 0 0 0 1px #111;
+}
+
+.lew-level.is-locked {
+  color: #777;
+}
+
+.lew-level__icon {
+  display: grid;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.lew-level__content {
+  display: grid;
+  gap: 3px;
+}
+
+.lew-level__content small {
+  color: #666;
+}
+
+.lew-rewards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
 .lew-meta,
 .lew-points {
   border: 1px solid #ddd;
@@ -55,15 +116,16 @@
 }
 
 .lew-card {
+  position: relative;
   border: 1px solid #ddd;
   border-radius: 10px;
   padding: 16px;
-  margin-bottom: 16px;
   background: #fff;
 }
 
 .lew-card.is-locked {
-  opacity: .7;
+  border-style: dashed;
+  background: #f7f7f5;
 }
 
 .lew-card img {
@@ -75,6 +137,18 @@
 
 .lew-card h3 {
   margin: 0 0 8px;
+}
+
+.lew-card__type {
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #eef0eb;
+  color: #333;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .02em;
 }
 
 .lew-card__meta {
