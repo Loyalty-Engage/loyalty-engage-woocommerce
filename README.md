@@ -155,6 +155,23 @@ Plugin logging goes through the WooCommerce logger under source:
 loyalty-engage-woocommerce
 ```
 
+## Updates through WordPress
+
+The plugin uses GitHub Releases as its update source through the WordPress `Update URI` mechanism.
+
+- WordPress checks the latest public GitHub release and compares its tag with the installed plugin version.
+- The release must have a semantic tag such as `v1.5.8` and an asset named `loyalty-engage-woocommerce.zip`.
+- Pushing a matching version tag runs `.github/workflows/release.yml`, validates the plugin version and publishes the correctly structured ZIP automatically.
+- Version `1.5.8` must be installed manually once on existing shops; subsequent releases appear in the normal WordPress Plugins update screen.
+- The release response is cached for six hours; WordPress itself also controls how often plugin update checks run.
+
+Release commands after updating both plugin version declarations:
+
+```bash
+git tag v1.5.8
+git push origin v1.5.8
+```
+
 ## Release checklist
 
 1. Install plugin in a WooCommerce staging environment.

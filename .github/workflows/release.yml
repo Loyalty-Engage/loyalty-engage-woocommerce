@@ -1,0 +1,46 @@
+name: Release WordPress plugin
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          plugin_version="$(sed -n "s/define('LEW_PLUGIN_VERSION', '\([^']*\)').*/\1/p" loyalty-engage-woocommerce.php)"
+          tag_version="${GITHUB_REF_NAME#v}"
+          test -n "$plugin_version"
+          test "$plugin_version" = "$tag_version"
+
+      - name: Build installable plugin ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/loyalty-engage-woocommerce
+          cp loyalty-engage-woocommerce.php README.md dist/loyalty-engage-woocommerce/
+          cp -R assets includes dist/loyalty-engage-woocommerce/
+          cd dist
+          zip -r ../loyalty-engage-woocommerce.zip loyalty-engage-woocommerce
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            loyalty-engage-woocommerce.zip \
+            --verify-tag \
+            --title "Loyalty Engage for WooCommerce ${GITHUB_REF_NAME#v}" \
+            --generate-notes

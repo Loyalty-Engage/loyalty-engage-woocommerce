@@ -2,10 +2,11 @@
 /**
  * Plugin Name: Loyalty Engage for WooCommerce
  * Description: Loyalty Engage integration for WooCommerce with order export, returns, loyalty rewards, discount redemption and customer sync.
- * Version: 1.5.7
+ * Version: 1.5.8
  * Author: Loyalty Engage B.V.
  * Requires at least: 6.5
  * Requires PHP: 8.1
+ * Update URI: https://github.com/Loyalty-Engage/loyalty-engage-woocommerce
  * Text Domain: loyalty-engage-woocommerce
  */
 
@@ -13,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('LEW_PLUGIN_VERSION', '1.5.7');
+define('LEW_PLUGIN_VERSION', '1.5.8');
 define('LEW_PLUGIN_FILE', __FILE__);
 define('LEW_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('LEW_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -28,6 +29,9 @@ require_once LEW_PLUGIN_DIR . 'includes/class-lew-shipping.php';
 require_once LEW_PLUGIN_DIR . 'includes/class-lew-webhooks.php';
 require_once LEW_PLUGIN_DIR . 'includes/class-lew-storefront.php';
 require_once LEW_PLUGIN_DIR . 'includes/class-lew-plugin.php';
+require_once LEW_PLUGIN_DIR . 'includes/class-lew-updater.php';
+
+LEW_Updater::boot();
 
 register_activation_hook(__FILE__, ['LEW_Activator', 'activate']);
 register_deactivation_hook(__FILE__, ['LEW_Activator', 'deactivate']);
