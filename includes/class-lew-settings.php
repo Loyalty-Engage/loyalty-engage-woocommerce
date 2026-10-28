@@ -38,6 +38,9 @@ class LEW_Settings
             'min_points_to_redeem' => '1',
             'max_points_per_order' => '0',
             'max_discount_percentage' => '0',
+            'pdp_points_enabled' => 'no',
+            'pdp_points_per_currency_unit' => '1',
+            'pdp_points_label' => 'Met dit product verdien je {{points}} punten.',
             'free_shipping_enabled' => 'no',
             'free_shipping_tiers' => '',
             'expose_customer_meta' => 'yes',
@@ -146,6 +149,9 @@ class LEW_Settings
             'min_points_to_redeem' => (string) max(1, absint($merged['min_points_to_redeem'])),
             'max_points_per_order' => $sanitize_int($merged['max_points_per_order']),
             'max_discount_percentage' => (string) min(100, max(0, absint($merged['max_discount_percentage']))),
+            'pdp_points_enabled' => $is_enabled($merged['pdp_points_enabled']),
+            'pdp_points_per_currency_unit' => $sanitize_decimal($merged['pdp_points_per_currency_unit']),
+            'pdp_points_label' => sanitize_text_field((string) $merged['pdp_points_label']),
             'free_shipping_enabled' => $is_enabled($merged['free_shipping_enabled']),
             'free_shipping_tiers' => sanitize_text_field((string) $merged['free_shipping_tiers']),
             'expose_customer_meta' => $is_enabled($merged['expose_customer_meta']),
@@ -277,6 +283,18 @@ class LEW_Settings
                             <br>
                             <input type="number" min="0" max="100" id="lew-max-discount-percentage" name="<?php echo esc_attr(self::OPTION_KEY); ?>[max_discount_percentage]" value="<?php echo esc_attr($settings['max_discount_percentage']); ?>" class="small-text">
                             <label for="lew-max-discount-percentage"> Maximum discount percentage of cart subtotal</label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Points on product pages</th>
+                        <td>
+                            <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[pdp_points_enabled]" value="1" <?php checked($settings['pdp_points_enabled'], 'yes'); ?>> Show estimated earning points on product pages</label>
+                            <p class="description">Uses the displayed WooCommerce product price. Configure the base earning rate used by Loyalty Engage.</p>
+                            <input type="number" min="0" step="0.01" id="lew-pdp-points-rate" name="<?php echo esc_attr(self::OPTION_KEY); ?>[pdp_points_per_currency_unit]" value="<?php echo esc_attr($settings['pdp_points_per_currency_unit']); ?>" class="small-text">
+                            <label for="lew-pdp-points-rate"> Points earned per currency unit</label>
+                            <br>
+                            <input id="lew-pdp-points-label" name="<?php echo esc_attr(self::OPTION_KEY); ?>[pdp_points_label]" value="<?php echo esc_attr($settings['pdp_points_label']); ?>" class="regular-text">
+                            <p class="description">Use <code>{{points}}</code> for the amount or range. Campaign bonuses are calculated by Loyalty Engage after purchase and are not included in this estimate.</p>
                         </td>
                     </tr>
                     <tr>

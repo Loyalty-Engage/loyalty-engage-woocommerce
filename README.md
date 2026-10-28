@@ -58,6 +58,7 @@ woocommerce-loyalty-engage/
 - rewards remain visible when the customer still needs more coins or a higher loyalty level
 - current, achieved and upcoming loyalty levels are shown as level badges based on synced customer data and reward thresholds
 - physical rewards are reserved in Loyalty Engage and then added to the WooCommerce cart
+- product pages can show estimated earning points based on the displayed WooCommerce price and a configurable base earning rate
 
 ### Personalization engine storefront
 
@@ -120,6 +121,7 @@ Admin page:
 - Minimum non-loyalty subtotal
 - Minimum subtotal error messages
 - Points redemption settings
+- Product page earning-points toggle, rate and label
 - Free shipping tier settings
 - Frontend loyalty meta visibility and labels
 - Loyalty personalization toggle

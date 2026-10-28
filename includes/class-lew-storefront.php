@@ -13,6 +13,7 @@ class LEW_Storefront
     {
         add_shortcode('loyalty_engage_page', [self::class, 'render_loyalty_page']);
         add_action('wp_enqueue_scripts', [self::class, 'register_assets']);
+        add_action('woocommerce_single_product_summary', [self::class, 'render_product_earning_points'], 11);
         add_action('show_user_profile', [self::class, 'render_admin_loyalty_profile']);
         add_action('edit_user_profile', [self::class, 'render_admin_loyalty_profile']);
         add_action('woocommerce_before_calculate_totals', [self::class, 'apply_zero_price_to_loyalty_items'], 20);
@@ -26,6 +27,7 @@ class LEW_Storefront
     public static function register_assets(): void
     {
         wp_register_style('lew-loyalty-page', LEW_PLUGIN_URL . 'assets/css/loyalty-page.css', [], LEW_PLUGIN_VERSION);
+        wp_register_style('lew-storefront', LEW_PLUGIN_URL . 'assets/css/storefront.css', [], LEW_PLUGIN_VERSION);
         wp_register_script('lew-loyalty-page', LEW_PLUGIN_URL . 'assets/js/loyalty-page.js', [], LEW_PLUGIN_VERSION, true);
         wp_register_script('lew-storefront-bridge', LEW_PLUGIN_URL . 'assets/js/storefront-bridge.js', [], LEW_PLUGIN_VERSION, true);
 
@@ -35,6 +37,9 @@ class LEW_Storefront
 
         $user = wp_get_current_user();
         $settings = LEW_Settings::get_settings();
+        if (is_product() && ($settings['pdp_points_enabled'] ?? 'no') === 'yes') {
+            wp_enqueue_style('lew-storefront');
+        }
         $discount_reward_mode = $settings['discount_reward_mode'] ?? 'woocommerce_coupon';
         $cart_url = esc_url_raw(wc_get_cart_url());
 
@@ -57,6 +62,56 @@ class LEW_Storefront
             'loginUrl' => esc_url_raw(wc_get_page_permalink('myaccount')),
         ]);
         wp_enqueue_script('lew-storefront-bridge');
+    }
+
+    public static function render_product_earning_points(): void
+    {
+        if (!LEW_Settings::is_module_enabled()) {
+            return;
+        }
+
+        $settings = LEW_Settings::get_settings();
+        if (($settings['pdp_points_enabled'] ?? 'no') !== 'yes') {
+            return;
+        }
+
+        global $product;
+        if (!$product instanceof WC_Product) {
+            return;
+        }
+
+        $rate = max(0, (float) ($settings['pdp_points_per_currency_unit'] ?? 0));
+        if ($rate <= 0) {
+            return;
+        }
+
+        if ($product->is_type('variable')) {
+            $minimum_price = (float) $product->get_variation_price('min', true);
+            $maximum_price = (float) $product->get_variation_price('max', true);
+        } else {
+            $minimum_price = (float) wc_get_price_to_display($product);
+            $maximum_price = $minimum_price;
+        }
+
+        $points = [
+            'min' => (int) floor($minimum_price * $rate),
+            'max' => (int) floor($maximum_price * $rate),
+        ];
+        $points = apply_filters('lew_product_earning_points_range', $points, $product, $rate);
+        $minimum_points = max(0, (int) ($points['min'] ?? 0));
+        $maximum_points = max($minimum_points, (int) ($points['max'] ?? $minimum_points));
+        if ($maximum_points <= 0) {
+            return;
+        }
+
+        $formatted_points = number_format_i18n($minimum_points);
+        if ($maximum_points !== $minimum_points) {
+            $formatted_points .= ' - ' . number_format_i18n($maximum_points);
+        }
+
+        $label = (string) ($settings['pdp_points_label'] ?? 'Met dit product verdien je {{points}} punten.');
+        $message = str_replace('{{points}}', $formatted_points, $label);
+        echo '<p class="lew-product-earning-points">' . esc_html($message) . '</p>';
     }
 
     public static function render_loyalty_page(): string

@@ -1,0 +1,12 @@
+.lew-product-earning-points {
+    display: inline-flex;
+    align-items: center;
+    margin: 0 0 1rem;
+    padding: 0.55rem 0.8rem;
+    border-left: 3px solid #6d8b48;
+    border-radius: 0 0.35rem 0.35rem 0;
+    background: #f2f6ec;
+    color: #2f4225;
+    font-size: 0.95em;
+    font-weight: 600;
+}
