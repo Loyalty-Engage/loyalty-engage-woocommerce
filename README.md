@@ -63,6 +63,10 @@ woocommerce-loyalty-engage/
 ### Personalization engine storefront
 
 - the plugin exposes `window.lewWooCommerce` with the REST base URL, a WordPress nonce, customer ID, loyalty balance, current/next level and cart URLs
+- PDP and cart pages expose `pageType`, `cartValue`, `currency`, product context and cart context through `window.lewWooCommerce`
+- selected WooCommerce variations and cart changes update `cartValue` and dispatch `lew:commerce-context-updated` for local personalization scripts
+- `identifier` contains the logged-in customer's e-mail address; `cartValueBasis` documents that award values exclude tax and cart discounts are included
+- Loyalty Engage templates should use `allAvailableLoyaltyShopProducts()` to render the full reward horizon; `availableProducts` only contains rewards the contact can buy now
 - personalization markup can declare levels with `data-lew-level` and `data-lew-required-points`; the storefront bridge marks current, achieved and locked levels automatically
 - reward cards can declare `data-lew-coin-price`, `data-lew-required-tier` and `data-lew-required-points`; unavailable cards remain visible and are disabled automatically
 - buttons with `data-lew-action="physical"` reserve the reward and add the matching WooCommerce SKU to the cart

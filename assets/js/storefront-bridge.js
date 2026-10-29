@@ -12,6 +12,51 @@
     return Number.isNaN(parsed) ? 0 : parsed;
   }
 
+  function amount(value) {
+    var parsed = parseFloat(value || '0');
+    return Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
+  }
+
+  function publishCommerceContext(source) {
+    window.lewWooCommerce = config;
+    window.dispatchEvent(new CustomEvent('lew:commerce-context-updated', {
+      detail: Object.assign({ source: source || 'unknown' }, config)
+    }));
+  }
+
+  function setProductPrice(price, variationId) {
+    if (config.pageType !== 'product') return;
+
+    var product = Object.assign({}, config.product || {});
+    product.price = amount(price);
+    product.variationId = number(variationId);
+    config.product = product;
+    config.cartValue = product.price;
+    publishCommerceContext('product-variation');
+  }
+
+  function refreshCartContext() {
+    if (config.pageType !== 'cart' || !config.restBase) return;
+
+    var url = config.restBase.replace(/\/$/, '') + '/context?pageType=cart';
+    fetch(url, {
+      credentials: 'same-origin',
+      headers: config.nonce ? { 'X-WP-Nonce': config.nonce } : {}
+    }).then(function (response) {
+      if (!response.ok) throw new Error('Context request failed');
+      return response.json();
+    }).then(function (data) {
+      if (!data || !data.success || !data.context) return;
+      config.cartValue = amount(data.context.cartValue);
+      config.cartValueBasis = data.context.cartValueBasis || config.cartValueBasis;
+      config.currency = data.context.currency || config.currency;
+      config.cart = data.context.cart || config.cart;
+      publishCommerceContext('cart-updated');
+    }).catch(function () {
+      // Keep the last valid server value when cart context cannot be refreshed.
+    });
+  }
+
   function getLevelElements() {
     return Array.prototype.slice.call(document.querySelectorAll('[data-lew-level]'));
   }
@@ -105,6 +150,29 @@
 
   config.refreshLoyaltyUi = refreshLoyaltyUi;
   refreshLoyaltyUi();
+
+  var wooEventsBound = false;
+  function bindWooEvents() {
+    if (wooEventsBound || !window.jQuery) return;
+    wooEventsBound = true;
+    window.jQuery(document)
+      .on('found_variation', 'form.variations_form', function (event, variation) {
+        if (!variation) return;
+        setProductPrice(variation.lew_award_price === undefined ? variation.display_price : variation.lew_award_price, variation.variation_id);
+      })
+      .on('reset_data hide_variation', 'form.variations_form', function () {
+        setProductPrice(config.product ? config.product.minPrice : 0, 0);
+      })
+      .on('updated_wc_div added_to_cart removed_from_cart', function () {
+        refreshCartContext();
+      });
+  }
+
+  bindWooEvents();
+  window.addEventListener('load', bindWooEvents);
+
+  document.addEventListener('wc-blocks_added_to_cart', refreshCartContext);
+  document.addEventListener('wc-blocks_removed_from_cart', refreshCartContext);
 
   if (document.body && window.MutationObserver) {
     var refreshScheduled = false;

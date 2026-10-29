@@ -19,6 +19,12 @@ class LEW_Rest_API
             'permission_callback' => '__return_true',
         ]);
 
+        register_rest_route('loyalty-engage/v1', '/context', [
+            'methods' => 'GET',
+            'callback' => [self::class, 'get_frontend_context'],
+            'permission_callback' => '__return_true',
+        ]);
+
         register_rest_route('loyalty-engage/v1', '/loyalty-status', [
             'methods' => 'GET',
             'callback' => [self::class, 'get_loyalty_status'],
@@ -83,7 +89,7 @@ class LEW_Rest_API
             ], 503);
         }
 
-        $products = LEW_Storefront::get_cached_available_products();
+        $products = LEW_Storefront::get_cached_catalog_products();
         $customer_ref = (string) ($request->get_param('customerId') ?: $request->get_param('customerEmail') ?: '');
 
         $matched = array_values(array_filter(array_map(
@@ -103,6 +109,24 @@ class LEW_Rest_API
         return new WP_REST_Response([
             'success' => true,
             'matchedProducts' => $matched,
+        ]);
+    }
+
+    public static function get_frontend_context(WP_REST_Request $request): WP_REST_Response
+    {
+        if (!LEW_Settings::is_module_enabled()) {
+            return new WP_REST_Response([
+                'success' => false,
+                'message' => 'Loyalty Engage module is disabled.',
+            ], 503);
+        }
+
+        $page_type = sanitize_key((string) $request->get_param('pageType'));
+        $product_id = absint($request->get_param('productId'));
+
+        return new WP_REST_Response([
+            'success' => true,
+            'context' => LEW_Storefront::get_frontend_context($page_type, $product_id),
         ]);
     }
 

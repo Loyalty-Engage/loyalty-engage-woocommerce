@@ -6,13 +6,14 @@ if (!defined('ABSPATH')) {
 
 class LEW_Storefront
 {
-    private const PRODUCT_CACHE_KEY = 'lew_products_cache';
+    private const PRODUCT_CACHE_KEY = 'lew_catalog_products_cache';
     private const PRODUCT_CACHE_TTL = 300;
 
     public static function boot(): void
     {
         add_shortcode('loyalty_engage_page', [self::class, 'render_loyalty_page']);
         add_action('wp_enqueue_scripts', [self::class, 'register_assets']);
+        add_filter('woocommerce_available_variation', [self::class, 'add_variation_loyalty_context'], 20, 3);
         add_action('woocommerce_single_product_summary', [self::class, 'render_product_earning_points'], 11);
         add_action('show_user_profile', [self::class, 'render_admin_loyalty_profile']);
         add_action('edit_user_profile', [self::class, 'render_admin_loyalty_profile']);
@@ -37,6 +38,7 @@ class LEW_Storefront
 
         $user = wp_get_current_user();
         $settings = LEW_Settings::get_settings();
+        $frontend_context = self::get_frontend_context();
         if (is_product() && ($settings['pdp_points_enabled'] ?? 'no') === 'yes') {
             wp_enqueue_style('lew-storefront');
         }
@@ -47,12 +49,20 @@ class LEW_Storefront
             'restBase' => esc_url_raw(rest_url('loyalty-engage/v1')),
             'nonce' => wp_create_nonce('wp_rest'),
             'customerId' => $user->exists() ? (int) $user->ID : 0,
+            'customerEmail' => $user->exists() ? (string) $user->user_email : '',
+            'identifier' => $user->exists() ? (string) $user->user_email : '',
             'loggedIn' => $user->exists(),
             'availableCoins' => $user->exists() ? (int) self::get_customer_loyalty_value($user->ID, 'lew_availableCoins') : 0,
             'points' => $user->exists() ? (int) self::get_customer_loyalty_value($user->ID, 'lew_points') : 0,
             'currentTier' => $user->exists() ? (string) self::get_customer_loyalty_value($user->ID, 'lew_current_tier') : '',
             'nextTier' => $user->exists() ? (string) self::get_customer_loyalty_value($user->ID, 'lew_next_tier') : '',
             'pointsToNextTier' => $user->exists() ? (int) self::get_customer_loyalty_value($user->ID, 'lew_points_to_next_tier') : 0,
+            'pageType' => $frontend_context['pageType'],
+            'cartValue' => $frontend_context['cartValue'],
+            'cartValueBasis' => $frontend_context['cartValueBasis'],
+            'currency' => $frontend_context['currency'],
+            'product' => $frontend_context['product'],
+            'cart' => $frontend_context['cart'],
             // Existing personalization blocks redirect to cartUrl after a claim.
             // Keep them on the loyalty shop when the voucher is delivered by e-mail.
             'cartUrl' => $discount_reward_mode === 'email_gift_card' ? '#loyalty-shop' : $cart_url,
@@ -62,6 +72,79 @@ class LEW_Storefront
             'loginUrl' => esc_url_raw(wc_get_page_permalink('myaccount')),
         ]);
         wp_enqueue_script('lew-storefront-bridge');
+    }
+
+    public static function get_frontend_context(string $requested_page_type = '', int $product_id = 0): array
+    {
+        $page_type = $requested_page_type;
+        if ($page_type === '') {
+            $page_type = is_product() ? 'product' : (is_cart() ? 'cart' : 'other');
+        }
+        if (!in_array($page_type, ['product', 'cart', 'other'], true)) {
+            $page_type = 'other';
+        }
+
+        $context = [
+            'pageType' => $page_type,
+            'cartValue' => 0.0,
+            'cartValueBasis' => '',
+            'currency' => get_woocommerce_currency(),
+            'product' => null,
+            'cart' => null,
+        ];
+
+        if ($page_type === 'product') {
+            $product_id = $product_id ?: (int) get_queried_object_id();
+            $product = $product_id > 0 ? wc_get_product($product_id) : null;
+            if ($product instanceof WC_Product) {
+                if ($product->is_type('variable')) {
+                    $variation_prices = [];
+                    foreach ($product->get_children() as $variation_id) {
+                        $variation = wc_get_product($variation_id);
+                        if (!$variation instanceof WC_Product_Variation || $variation->get_price() === '') {
+                            continue;
+                        }
+                        $variation_prices[] = (float) wc_get_price_excluding_tax($variation);
+                    }
+                    $minimum_price = $variation_prices ? min($variation_prices) : 0.0;
+                    $maximum_price = $variation_prices ? max($variation_prices) : 0.0;
+                } else {
+                    $minimum_price = (float) wc_get_price_excluding_tax($product);
+                    $maximum_price = $minimum_price;
+                }
+
+                $context['cartValue'] = self::format_context_amount($minimum_price);
+                $context['cartValueBasis'] = 'product_price_excluding_tax';
+                $context['product'] = [
+                    'id' => $product->get_id(),
+                    'sku' => $product->get_sku(),
+                    'type' => $product->get_type(),
+                    'price' => self::format_context_amount($minimum_price),
+                    'minPrice' => self::format_context_amount($minimum_price),
+                    'maxPrice' => self::format_context_amount($maximum_price),
+                    'variationId' => 0,
+                ];
+            }
+        } elseif ($page_type === 'cart' && function_exists('WC') && WC()->cart instanceof WC_Cart) {
+            $context['cartValue'] = self::format_context_amount((float) WC()->cart->get_cart_contents_total());
+            $context['cartValueBasis'] = 'discounted_cart_contents_excluding_tax';
+            $context['cart'] = [
+                'itemCount' => (int) WC()->cart->get_cart_contents_count(),
+            ];
+        }
+
+        return apply_filters('lew_frontend_context', $context, $page_type, $product_id);
+    }
+
+    public static function add_variation_loyalty_context(array $data, WC_Product $product, WC_Product_Variation $variation): array
+    {
+        $data['lew_award_price'] = self::format_context_amount((float) wc_get_price_excluding_tax($variation));
+        return $data;
+    }
+
+    private static function format_context_amount(float $amount): float
+    {
+        return round(max(0, $amount), wc_get_price_decimals());
     }
 
     public static function render_product_earning_points(): void
@@ -303,7 +386,7 @@ class LEW_Storefront
         }, $ranked));
     }
 
-    public static function get_cached_available_products(): array
+    public static function get_cached_catalog_products(): array
     {
         $cached = get_transient(self::PRODUCT_CACHE_KEY);
         if (is_array($cached)) {
@@ -313,15 +396,28 @@ class LEW_Storefront
         $client = new LEW_Loyalty_Engage_Client();
         $response = $client->request('/loyalty/shop/available_products', 'GET');
         $body = is_array($response['body']) ? $response['body'] : [];
-        $products = isset($body['availableProducts']) && is_array($body['availableProducts']) ? $body['availableProducts'] : [];
+        if (isset($body['allProducts']) && is_array($body['allProducts'])) {
+            $products = $body['allProducts'];
+        } elseif (isset($body['products']) && is_array($body['products'])) {
+            $products = $body['products'];
+        } else {
+            // The legacy global catalog endpoint names this field availableProducts,
+            // although no contact-specific availability filter is applied.
+            $products = isset($body['availableProducts']) && is_array($body['availableProducts']) ? $body['availableProducts'] : [];
+        }
 
         set_transient(self::PRODUCT_CACHE_KEY, $products, self::PRODUCT_CACHE_TTL);
         return $products;
     }
 
+    public static function get_cached_available_products(): array
+    {
+        return self::get_cached_catalog_products();
+    }
+
     public static function find_reward_by_sku(string $sku): ?array
     {
-        foreach (self::get_cached_available_products() as $reward) {
+        foreach (self::get_cached_catalog_products() as $reward) {
             if (!is_array($reward)) {
                 continue;
             }
