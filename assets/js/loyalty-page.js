@@ -177,9 +177,12 @@
     var requiredPoints = parseInt((reward.loyalty && reward.loyalty.requiredPoints) || 0, 10) || 0;
     var canAfford = availableCoins >= coins;
     var tierReached = hasReachedTier(requiredTier, requiredPoints, levels);
-    var isAvailable = canAfford && tierReached;
+    var isStorefrontClaimable = type === 'discount' || Boolean(reward.storefront && reward.storefront.claimable);
+    var isAvailable = canAfford && tierReached && isStorefrontClaimable;
     var buttonText = type === 'discount' ? 'Cadeaubon claimen' : 'Cadeau kiezen';
-    var lockedText = !tierReached
+    var lockedText = !isStorefrontClaimable
+      ? 'Binnenkort beschikbaar'
+      : !tierReached
       ? 'Beschikbaar vanaf ' + requiredTier
       : 'Nog ' + Math.max(0, coins - availableCoins) + ' coins nodig';
 
@@ -341,7 +344,7 @@
     });
   }
 
-  request('/products?customerId=' + encodeURIComponent(customerId) + '&customerEmail=' + encodeURIComponent(customerEmail), {
+  request('/products?includeAll=1&customerId=' + encodeURIComponent(customerId) + '&customerEmail=' + encodeURIComponent(customerEmail), {
     method: 'GET',
     headers: { 'X-WP-Nonce': nonce }
   }).then(function (result) {

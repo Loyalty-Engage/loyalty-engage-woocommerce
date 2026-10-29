@@ -310,6 +310,10 @@ class LEW_Storefront
                 'matchCount' => 0,
                 'isMatch' => false,
             ],
+            'storefront' => [
+                'woocommerceMatched' => $wc_match !== null,
+                'claimable' => ($loyalty['product_type'] ?? '') === 'discount_code' || $wc_match !== null,
+            ],
         ];
     }
 

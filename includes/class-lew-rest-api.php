@@ -92,19 +92,17 @@ class LEW_Rest_API
         $products = LEW_Storefront::get_cached_catalog_products();
         $customer_ref = (string) ($request->get_param('customerId') ?: $request->get_param('customerEmail') ?: '');
 
-        $matched = array_values(array_filter(array_map(
+        $matched = array_values(array_map(
             static function (array $product) {
                 $match = LEW_Storefront::match_loyalty_product_to_wc_product($product);
-                if (!$match && ($product['type'] ?? '') !== 'discount_code') {
-                    return null;
-                }
-
                 return LEW_Storefront::build_matched_product($product, $match);
             },
             $products
-        )));
+        ));
 
-        $matched = LEW_Storefront::personalize_products($matched, $customer_ref);
+        if (!$request->get_param('includeAll')) {
+            $matched = LEW_Storefront::personalize_products($matched, $customer_ref);
+        }
 
         return new WP_REST_Response([
             'success' => true,

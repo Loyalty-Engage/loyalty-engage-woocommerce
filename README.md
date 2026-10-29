@@ -56,6 +56,7 @@ woocommerce-loyalty-engage/
 - rewards are matched against WooCommerce products by SKU, variation id, barcode fallback and title fallback
 - gift cards and physical gifts are presented together in one rewards overview with clear type labels
 - rewards remain visible when the customer still needs more coins or a higher loyalty level
+- physical rewards without a WooCommerce product match remain visible as upcoming rewards but cannot be claimed yet
 - current, achieved and upcoming loyalty levels are shown as level badges based on synced customer data and reward thresholds
 - physical rewards are reserved in Loyalty Engage and then added to the WooCommerce cart
 - product pages can show estimated earning points based on the displayed WooCommerce price and a configurable base earning rate
