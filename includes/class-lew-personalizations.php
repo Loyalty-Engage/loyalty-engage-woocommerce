@@ -16,6 +16,7 @@ class LEW_Personalizations
         add_action('admin_post_lew_save_personalizations', [self::class, 'save']);
         add_shortcode('loyalty_engage_personalization', [self::class, 'shortcode']);
         add_action('wp_enqueue_scripts', [self::class, 'enqueue_for_auto_pages'], 30);
+        add_filter('script_loader_tag', [self::class, 'module_script_tag'], 10, 2);
         add_action('woocommerce_single_product_summary', [self::class, 'render_product_auto'], 35);
         add_filter('the_content', [self::class, 'append_page_auto'], 30);
     }
@@ -23,10 +24,30 @@ class LEW_Personalizations
     public static function get_settings(): array
     {
         $saved = get_option(self::OPTION_KEY, []);
-        return wp_parse_args(is_array($saved) ? $saved : [], [
-            'script_url' => '',
+        $settings = wp_parse_args(is_array($saved) ? $saved : [], [
+            'tenant_id' => '',
             'rules' => [],
         ]);
+        // Existing installations may have stored the generated script URL.
+        $settings['tenant_id'] = self::extract_tenant_id((string) ($settings['tenant_id'] ?: ($settings['script_url'] ?? '')));
+        return $settings;
+    }
+
+    public static function extract_tenant_id(string $input): string
+    {
+        $input = trim($input);
+        $uuid = '[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}';
+        if (preg_match('~^(' . $uuid . ')$~i', $input, $matches)) {
+            return strtolower($matches[1]);
+        }
+        if (preg_match('~https://le-cloud\.app/f/t/(' . $uuid . ')\.js(?:[?"\']|$)~i', $input, $matches)) {
+            return strtolower($matches[1]);
+        }
+        if (str_contains($input, 'https://le-cloud.app/f/t/') &&
+            preg_match('~\(\s*window\s*,\s*document\s*,\s*["\']script["\']\s*,\s*["\'](' . $uuid . ')["\']\s*\)~i', $input, $matches)) {
+            return strtolower($matches[1]);
+        }
+        return '';
     }
 
     public static function register_menu(): void
@@ -51,12 +72,11 @@ class LEW_Personalizations
         $input = isset($_POST['lew_personalizations']) && is_array($_POST['lew_personalizations'])
             ? wp_unslash($_POST['lew_personalizations'])
             : [];
-        $script_url = esc_url_raw(trim((string) ($input['script_url'] ?? '')));
-        if ($script_url !== '' && (
-            wp_parse_url($script_url, PHP_URL_SCHEME) !== 'https' ||
-            !wp_parse_url($script_url, PHP_URL_HOST)
-        )) {
-            $script_url = '';
+        $tenant_input = trim((string) ($input['tenant_id'] ?? ''));
+        $tenant_id = self::extract_tenant_id($tenant_input);
+        $invalid_tenant = $tenant_input !== '' && $tenant_id === '';
+        if ($invalid_tenant) {
+            $tenant_id = self::get_settings()['tenant_id'];
         }
 
         $rules = [];
@@ -92,9 +112,9 @@ class LEW_Personalizations
             ];
         }
 
-        update_option(self::OPTION_KEY, ['script_url' => $script_url, 'rules' => $rules]);
+        update_option(self::OPTION_KEY, ['tenant_id' => $tenant_id, 'rules' => $rules]);
         wp_safe_redirect(add_query_arg(
-            'updated', $script_url === '' && !empty($input['script_url']) ? 'invalid-url' : 'true',
+            'updated', $invalid_tenant ? 'invalid-tenant' : 'true',
             admin_url('admin.php?page=loyalty-engage-personalizations')
         ));
         exit;
@@ -110,16 +130,16 @@ class LEW_Personalizations
         <div class="wrap">
             <h1>Loyalty Engage-personalisaties</h1>
             <?php if (isset($_GET['updated']) && $_GET['updated'] === 'true') : ?><div class="notice notice-success"><p>Personalisaties opgeslagen.</p></div><?php endif; ?>
-            <?php if (isset($_GET['updated']) && $_GET['updated'] === 'invalid-url') : ?><div class="notice notice-error"><p>De script-URL is niet opgeslagen. Gebruik een volledige HTTPS-URL.</p></div><?php endif; ?>
-            <?php if ($settings['script_url'] === '' && array_filter($settings['rules'], static fn (array $rule): bool => $rule['enabled'] === 'yes')) : ?><div class="notice notice-warning"><p>Voeg de URL van het Loyalty Engage-basisscript toe om de actieve personalisaties te tonen.</p></div><?php endif; ?>
+            <?php if (isset($_GET['updated']) && $_GET['updated'] === 'invalid-tenant') : ?><div class="notice notice-error"><p>Geen geldige tenant-ID gevonden. De vorige tenant-ID is behouden. Plak de officiële loader-snippet of vul alleen de UUID in.</p></div><?php endif; ?>
+            <?php if ($settings['tenant_id'] === '' && array_filter($settings['rules'], static fn (array $rule): bool => $rule['enabled'] === 'yes')) : ?><div class="notice notice-warning"><p>Voeg de Loyalty Engage-loader-snippet of tenant-ID toe om actieve personalisaties te tonen.</p></div><?php endif; ?>
             <p>Gebruik de public ID uit Loyalty Engage. Het basisscript wordt eenmaal geladen op pagina's waar een actieve personalisatie staat. De bestaande loyaltyshop-personalisatie-instellingen staan los van deze functie.</p>
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                 <input type="hidden" name="action" value="lew_save_personalizations">
                 <?php wp_nonce_field('lew_save_personalizations'); ?>
                 <table class="form-table" role="presentation"><tr>
-                    <th scope="row"><label for="lew-personalization-script-url">Loyalty Engage-basisscript</label></th>
-                    <td><input type="url" id="lew-personalization-script-url" name="lew_personalizations[script_url]" value="<?php echo esc_attr($settings['script_url']); ?>" class="large-text" placeholder="https://.../script.js" pattern="https://.*">
-                    <p class="description">Plak de HTTPS-URL van het officiële Loyalty Engage-basisscript. Zonder deze URL worden personalisaties niet geladen. Gebruik alleen een script van Loyalty Engage.</p></td>
+                    <th scope="row"><label for="lew-personalization-tenant-id">Loyalty Engage-basisscript</label></th>
+                    <td><textarea id="lew-personalization-tenant-id" name="lew_personalizations[tenant_id]" class="large-text code" rows="4" placeholder="Plak de volledige &lt;script&gt;-snippet of de tenant-UUID"><?php echo esc_textarea($settings['tenant_id']); ?></textarea>
+                    <p class="description">Plak de tenantgebonden loader-snippet uit Loyalty Engage of vul alleen de tenant-UUID in. Alleen de ID wordt opgeslagen; de plugin laadt automatisch https://le-cloud.app/f/t/&lt;tenant-ID&gt;.js.</p></td>
                 </tr></table>
                 <h2>Personalisaties</h2>
                 <div id="lew-personalization-rules">
@@ -271,17 +291,27 @@ class LEW_Personalizations
             return;
         }
         $settings = self::get_settings();
-        if ($settings['script_url'] === '') {
+        if ($settings['tenant_id'] === '') {
             return;
         }
         self::$scripts_enqueued = true;
         wp_enqueue_script('lew-storefront-bridge');
-        wp_register_script('lew-personalization-base', $settings['script_url'], [], null, true);
-        wp_add_inline_script('lew-personalization-base', 'window._lecloud=window._lecloud||{};window._lecloud.personalization=window._lecloud.personalization||[];', 'before');
+        $base_url = 'https://le-cloud.app/f/t/' . $settings['tenant_id'] . '.js';
+        wp_register_script('lew-personalization-base', $base_url, [], null, true);
+        wp_add_inline_script('lew-personalization-base', 'window._lecloud=window._lecloud||{event:[],personalization:[]};window._lecloud.event=window._lecloud.event||[];window._lecloud.personalization=window._lecloud.personalization||[];', 'before');
         wp_enqueue_script('lew-personalization-base');
         wp_register_script('lew-personalizations', LEW_PLUGIN_URL . 'assets/js/personalizations.js', ['lew-storefront-bridge', 'lew-personalization-base'], LEW_PLUGIN_VERSION, true);
         $rules = array_values(array_filter($settings['rules'], static fn (array $rule): bool => $rule['enabled'] === 'yes'));
         wp_add_inline_script('lew-personalizations', 'window.lewPersonalizationRules=' . wp_json_encode($rules, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . ';', 'before');
         wp_enqueue_script('lew-personalizations');
+    }
+
+    public static function module_script_tag(string $tag, string $handle): string
+    {
+        if ($handle !== 'lew-personalization-base') {
+            return $tag;
+        }
+        $tag = preg_replace('~\s+type=(["\']).*?\1~i', '', $tag);
+        return preg_replace('~<script\b~i', '<script type="module" async', $tag, 1);
     }
 }

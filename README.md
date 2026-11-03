@@ -79,14 +79,14 @@ woocommerce-loyalty-engage/
 
 ### Frontend personalizations
 
-- open **Loyalty Engage > Personalisaties** and enter the HTTPS URL of the official Loyalty Engage frontend script
+- open **Loyalty Engage > Personalisaties** and paste the tenant-specific `<script>...</script>` loader from Loyalty Engage, or enter its tenant UUID; the plugin stores only the UUID and loads `https://le-cloud.app/f/t/<tenant-UUID>.js` as a module
 - add one rule per public personalization ID, with a unique shortcode key
 - select **Only shortcode** to place `[loyalty_engage_personalization id="pdp-punten"]` in a page or **Automatic** to show it on all product pages, the cart, checkout, or selected WordPress pages
 - enable **Customer data** only for personalizations that need a contact identifier; it is sent only for logged-in customers
 - enable **CartValue** for templates using `getOrderAward(cartValue)`; product variation and cart updates trigger a new render when the value changes
 - set the HTML insertion method in Loyalty Engage to replace the target's content for personalizations that update with `cartValue`
 - allow the shop domain in **Loyalty Engage > Developer > Frontend settings > Allowed domains**
-- the Loyalty Engage frontend script URL must be configured in WordPress; API credentials are not exposed to the browser
+- the tenant loader must be configured in WordPress; arbitrary inline JavaScript is not stored or executed, and API credentials are not exposed to the browser
 
 ### Discount rewards
 
