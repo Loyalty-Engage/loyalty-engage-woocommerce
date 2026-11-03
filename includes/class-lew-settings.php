@@ -62,6 +62,7 @@ class LEW_Settings
             'loyalty_shop_personalization_enabled' => 'no',
             'loyalty_shop_personalization_tags' => '',
             'loyalty_shop_display_mode' => 'prioritize_matches',
+            'loyalty_levels' => '',
         ];
     }
 
@@ -173,6 +174,7 @@ class LEW_Settings
             'loyalty_shop_personalization_enabled' => $is_enabled($merged['loyalty_shop_personalization_enabled']),
             'loyalty_shop_personalization_tags' => sanitize_text_field((string) $merged['loyalty_shop_personalization_tags']),
             'loyalty_shop_display_mode' => $merged['loyalty_shop_display_mode'] === 'only_matching' ? 'only_matching' : 'prioritize_matches',
+            'loyalty_levels' => sanitize_textarea_field((string) $merged['loyalty_levels']),
         ];
     }
 
@@ -332,6 +334,13 @@ class LEW_Settings
                             <input name="<?php echo esc_attr(self::OPTION_KEY); ?>[le_reserved_coins_label]" value="<?php echo esc_attr($settings['le_reserved_coins_label']); ?>" class="regular-text"><br>
                             <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[le_expiring_points_30d_enabled]" value="1" <?php checked($settings['le_expiring_points_30d_enabled'], 'yes'); ?>> Show expiring points (30d)</label>
                             <input name="<?php echo esc_attr(self::OPTION_KEY); ?>[le_expiring_points_30d_label]" value="<?php echo esc_attr($settings['le_expiring_points_30d_label']); ?>" class="regular-text">
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="lew-loyalty-levels">Loyalty levels</label></th>
+                        <td>
+                            <textarea id="lew-loyalty-levels" name="<?php echo esc_attr(self::OPTION_KEY); ?>[loyalty_levels]" class="large-text code" rows="5" placeholder="Brons|0&#10;Zilver|500&#10;Goud|1500"><?php echo esc_textarea($settings['loyalty_levels']); ?></textarea>
+                            <p class="description">Alle levels voor het loyalty-overzicht, één per regel in oplopende volgorde: naam|benodigde punten. Ook levels zonder gekoppelde reward worden getoond.</p>
                         </td>
                     </tr>
                     <tr>

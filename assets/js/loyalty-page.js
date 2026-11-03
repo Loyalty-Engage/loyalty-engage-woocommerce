@@ -52,6 +52,12 @@
     return '€' + numeric.toFixed(2).replace('.', ',');
   }
 
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function (character) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character];
+    });
+  }
+
   function buildVariantSelect(reward) {
     var variants = reward.shopify && reward.shopify.variants ? reward.shopify.variants : [];
     if (!reward.shopify || !reward.shopify.hasMultipleVariants || variants.length <= 1) return '';
@@ -61,7 +67,7 @@
       variants.map(function (variant) {
         var disabled = variant.available ? '' : ' disabled';
         var label = variant.title || 'Variant';
-        return '<option value="' + String(variant.id || '') + '"' + disabled + '>' + label + (variant.available ? '' : ' (uitverkocht)') + '</option>';
+        return '<option value="' + escapeHtml(variant.id || '') + '"' + disabled + '>' + escapeHtml(label) + (variant.available ? '' : ' (uitverkocht)') + '</option>';
       }).join('') +
       '</select>';
   }
@@ -85,26 +91,31 @@
 
   function collectLevels(rewards) {
     var levelsByName = {};
+    var configured = Array.isArray(window.lewLoyaltyLevels) ? window.lewLoyaltyLevels : [];
 
-    function addLevel(name, requiredPoints) {
+    function addLevel(name, requiredPoints, configuredIndex) {
       var cleanName = String(name || '').trim();
       if (!cleanName) return;
 
       var key = normalizeTier(cleanName);
       var points = parseInt(requiredPoints || '0', 10) || 0;
       if (!levelsByName[key]) {
-        levelsByName[key] = { name: cleanName, requiredPoints: points };
-      } else if (points > 0 && (levelsByName[key].requiredPoints === 0 || points < levelsByName[key].requiredPoints)) {
+        levelsByName[key] = { name: cleanName, requiredPoints: points, configuredIndex: configuredIndex };
+      } else if (!Number.isInteger(levelsByName[key].configuredIndex) && points > 0 && (levelsByName[key].requiredPoints === 0 || points < levelsByName[key].requiredPoints)) {
         levelsByName[key].requiredPoints = points;
       }
     }
+
+    configured.forEach(function (level, index) {
+      addLevel(level.name, level.requiredPoints, index);
+    });
 
     rewards.forEach(function (reward) {
       var loyalty = reward.loyalty || {};
       addLevel(loyalty.requiredTier, loyalty.requiredPoints);
     });
 
-    addLevel(currentTier, customerPoints);
+    addLevel(currentTier, 0);
     addLevel(nextTier, pointsToNextTier > 0 ? customerPoints + pointsToNextTier : 0);
 
     var levels = Object.keys(levelsByName).map(function (key) {
@@ -112,6 +123,11 @@
     });
 
     levels.sort(function (left, right) {
+      if (configured.length) {
+        var leftOrder = Number.isInteger(left.configuredIndex) ? left.configuredIndex : Infinity;
+        var rightOrder = Number.isInteger(right.configuredIndex) ? right.configuredIndex : Infinity;
+        if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+      }
       if (left.requiredPoints === right.requiredPoints) {
         if (normalizeTier(left.name) === normalizeTier(currentTier)) return -1;
         if (normalizeTier(right.name) === normalizeTier(currentTier)) return 1;
@@ -125,7 +141,7 @@
     return levels;
   }
 
-  function hasReachedTier(requiredTier, requiredPoints, levels) {
+  function hasReachedTier(requiredTier, levels) {
     if (!requiredTier) return true;
     if (normalizeTier(requiredTier) === normalizeTier(currentTier)) return true;
 
@@ -140,7 +156,7 @@
       return currentIndex >= requiredIndex;
     }
 
-    return requiredPoints > 0 && customerPoints >= requiredPoints;
+    return false;
   }
 
   function renderLevels(levels) {
@@ -155,12 +171,12 @@
     container.innerHTML = '';
     levels.forEach(function (level, index) {
       var isCurrent = normalizeTier(level.name) === normalizeTier(currentTier);
-      var isReached = isCurrent || (level.requiredPoints > 0 && customerPoints >= level.requiredPoints) || (currentIndex >= 0 && index <= currentIndex);
+      var isReached = isCurrent || (currentIndex >= 0 && index <= currentIndex);
       var badge = document.createElement('div');
       badge.className = 'lew-level' + (isReached ? ' is-reached' : ' is-locked') + (isCurrent ? ' is-current' : '');
       badge.innerHTML =
         '<span class="lew-level__icon" aria-hidden="true">' + (isReached ? '&#10003;' : '&#128274;') + '</span>' +
-        '<span class="lew-level__content"><strong>' + level.name + '</strong>' +
+        '<span class="lew-level__content"><strong>' + escapeHtml(level.name) + '</strong>' +
         '<small>' + (isCurrent ? 'Huidig level' : (isReached ? 'Behaald' : (level.requiredPoints > 0 ? 'Vanaf ' + level.requiredPoints + ' punten' : 'Nog niet behaald'))) + '</small></span>';
       container.appendChild(badge);
     });
@@ -176,8 +192,8 @@
     var requiredTier = (reward.loyalty && reward.loyalty.requiredTier) || '';
     var requiredPoints = parseInt((reward.loyalty && reward.loyalty.requiredPoints) || 0, 10) || 0;
     var canAfford = availableCoins >= coins;
-    var tierReached = hasReachedTier(requiredTier, requiredPoints, levels);
-    var isStorefrontClaimable = type === 'discount' || Boolean(reward.storefront && reward.storefront.claimable);
+    var tierReached = hasReachedTier(requiredTier, levels);
+    var isStorefrontClaimable = type === 'discount' || (type === 'physical' && Boolean(reward.storefront && reward.storefront.claimable));
     var isAvailable = canAfford && tierReached && isStorefrontClaimable;
     var buttonText = type === 'discount' ? 'Cadeaubon claimen' : 'Cadeau kiezen';
     var lockedText = !isStorefrontClaimable
@@ -189,10 +205,10 @@
     var card = document.createElement('div');
     card.className = 'lew-card' + (isAvailable ? '' : ' is-locked');
     card.innerHTML =
-      (image ? '<img src="' + image + '" alt="' + title + '">' : '') +
-      '<span class="lew-card__type">' + (type === 'discount' ? 'Cadeaubon' : 'Fysiek cadeau') + '</span>' +
-      '<h3>' + title + '</h3>' +
-      '<p class="lew-card__meta">' + coins + ' coins' + (requiredTier ? ' • ' + requiredTier : '') + '</p>' +
+      (image ? '<img src="' + escapeHtml(image) + '" alt="' + escapeHtml(title) + '">' : '') +
+      '<span class="lew-card__type">' + (type === 'discount' ? 'Cadeaubon' : type === 'physical' ? 'Fysiek cadeau' : 'Reward') + '</span>' +
+      '<h3>' + escapeHtml(title) + '</h3>' +
+      '<p class="lew-card__meta">' + coins + ' coins' + (requiredTier ? ' • ' + escapeHtml(requiredTier) : '') + (requiredPoints > 0 ? ' • Vanaf ' + requiredPoints + ' punten' : '') + '</p>' +
       buildVariantSelect(reward) +
       '<button ' + (isAvailable ? '' : 'disabled') + '>' + (isAvailable ? buttonText : lockedText) + '</button>';
 
@@ -364,13 +380,10 @@
     renderLevels(levels);
 
     result.data.matchedProducts.forEach(function (reward) {
-      if (reward.loyalty && reward.loyalty.product_type === 'discount_code') {
-        renderCard(rewardsGrid, reward, 'discount', levels);
-        rewardCount += 1;
-      } else if (reward.loyalty && reward.loyalty.product_type === 'physical') {
-        renderCard(rewardsGrid, reward, 'physical', levels);
-        rewardCount += 1;
-      }
+      if (!reward || !reward.loyalty) return;
+      var productType = reward.loyalty.product_type;
+      renderCard(rewardsGrid, reward, productType === 'discount_code' ? 'discount' : productType === 'physical' ? 'physical' : 'other', levels);
+      rewardCount += 1;
     });
 
     if (rewardCount === 0) {
@@ -378,5 +391,7 @@
     }
   }).catch(function () {
     showMessage('Kon loyalty producten niet laden.', false);
+    var rewardsGrid = document.getElementById('lew-rewards-grid');
+    if (rewardsGrid) rewardsGrid.innerHTML = '<p>Rewards konden niet worden geladen.</p>';
   });
 })();

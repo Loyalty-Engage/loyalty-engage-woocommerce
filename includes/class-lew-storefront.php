@@ -211,6 +211,7 @@ class LEW_Storefront
         wp_enqueue_style('lew-loyalty-page');
         wp_enqueue_script('lew-loyalty-page');
         wp_add_inline_script('lew-loyalty-page', 'window.lewRestNonce = ' . wp_json_encode(wp_create_nonce('wp_rest')) . ';', 'before');
+        wp_add_inline_script('lew-loyalty-page', 'window.lewLoyaltyLevels = ' . wp_json_encode(self::parse_loyalty_levels((string) (LEW_Settings::get_settings()['loyalty_levels'] ?? '')), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . ';', 'before');
 
         return sprintf(
             '<div id="lew-loyalty-page" data-customer-id="%1$d" data-customer-email="%2$s" data-api-base="%3$s" data-coins="%4$s" data-points="%5$s" data-current-tier="%6$s" data-next-tier="%7$s" data-points-to-next-tier="%8$s"><div id="lew-meta-block">%9$s</div><div id="lew-points-block">%10$s</div><div id="lew-levels-section" class="lew-section" hidden><h2>Jouw levels</h2><p class="lew-section__intro">Bekijk welke levels je al hebt bereikt en welke nog voor je liggen.</p><div id="lew-levels" class="lew-levels"></div></div><div class="lew-section"><h2>Cadeaus en cadeaubonnen</h2><p class="lew-section__intro">Ontdek alle rewards, ook wanneer je nog coins of een hoger level nodig hebt.</p><div id="lew-rewards-grid" class="lew-rewards-grid"><p>Rewards laden...</p></div></div><div id="lew-message" class="lew-message" aria-live="polite"></div></div>',
@@ -225,6 +226,25 @@ class LEW_Storefront
             self::render_loyalty_meta_block($user->ID),
             self::render_points_redemption_block($user->ID)
         );
+    }
+
+    public static function parse_loyalty_levels(string $input): array
+    {
+        $levels = [];
+        $seen = [];
+        foreach (preg_split('/\r\n|\r|\n/', $input) as $line) {
+            $parts = array_map('trim', explode('|', $line, 2));
+            if (count($parts) !== 2 || $parts[0] === '' || !ctype_digit($parts[1])) {
+                continue;
+            }
+            $key = strtolower($parts[0]);
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $levels[] = ['name' => $parts[0], 'requiredPoints' => (int) $parts[1]];
+        }
+        return $levels;
     }
 
     public static function resolve_customer(string $customer_ref): ?WP_User
