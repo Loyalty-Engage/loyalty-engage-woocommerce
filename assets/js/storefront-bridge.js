@@ -36,7 +36,8 @@
   }
 
   function refreshCartContext() {
-    if (config.pageType !== 'cart' || !config.restBase) return;
+    if (config.pageType !== 'cart' && config.pageType !== 'checkout') return;
+    if (!config.restBase) return;
 
     var url = config.restBase.replace(/\/$/, '') + '/context?pageType=cart';
     fetch(url, {

@@ -25,5 +25,6 @@ class LEW_Plugin
         LEW_Rest_API::boot();
         LEW_Shipping::boot();
         LEW_Storefront::boot();
+        LEW_Personalizations::boot();
     }
 }

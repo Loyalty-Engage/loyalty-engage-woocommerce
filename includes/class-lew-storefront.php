@@ -78,9 +78,9 @@ class LEW_Storefront
     {
         $page_type = $requested_page_type;
         if ($page_type === '') {
-            $page_type = is_product() ? 'product' : (is_cart() ? 'cart' : 'other');
+            $page_type = is_product() ? 'product' : (is_cart() ? 'cart' : (is_checkout() && !is_order_received_page() ? 'checkout' : 'other'));
         }
-        if (!in_array($page_type, ['product', 'cart', 'other'], true)) {
+        if (!in_array($page_type, ['product', 'cart', 'checkout', 'other'], true)) {
             $page_type = 'other';
         }
 
@@ -125,7 +125,7 @@ class LEW_Storefront
                     'variationId' => 0,
                 ];
             }
-        } elseif ($page_type === 'cart' && function_exists('WC') && WC()->cart instanceof WC_Cart) {
+        } elseif (in_array($page_type, ['cart', 'checkout'], true) && function_exists('WC') && WC()->cart instanceof WC_Cart) {
             $context['cartValue'] = self::format_context_amount((float) WC()->cart->get_cart_contents_total());
             $context['cartValueBasis'] = 'discounted_cart_contents_excluding_tax';
             $context['cart'] = [

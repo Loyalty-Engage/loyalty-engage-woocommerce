@@ -16,6 +16,7 @@ WooCommerce plugin project that mirrors the main Loyalty Engage Shopify app capa
 - customer loyalty metadata sync into WordPress user meta
 - configurable loyalty overview block on the loyalty page
 - loyalty shop personalization by purchased product tags
+- configurable Loyalty Engage frontend personalizations with shortcodes and automatic page placement
 - retryable background processing with WooCommerce logging
 
 ## Project structure
@@ -64,7 +65,7 @@ woocommerce-loyalty-engage/
 ### Personalization engine storefront
 
 - the plugin exposes `window.lewWooCommerce` with the REST base URL, a WordPress nonce, customer ID, loyalty balance, current/next level and cart URLs
-- PDP and cart pages expose `pageType`, `cartValue`, `currency`, product context and cart context through `window.lewWooCommerce`
+- PDP, cart and checkout pages expose `pageType`, `cartValue`, `currency`, product context and cart context through `window.lewWooCommerce`
 - selected WooCommerce variations and cart changes update `cartValue` and dispatch `lew:commerce-context-updated` for local personalization scripts
 - `identifier` contains the logged-in customer's e-mail address; `cartValueBasis` documents that award values exclude tax and cart discounts are included
 - Loyalty Engage templates should use `allAvailableLoyaltyShopProducts()` to render the full reward horizon; `availableProducts` only contains rewards the contact can buy now
@@ -75,6 +76,17 @@ woocommerce-loyalty-engage/
 - client and webhook secrets are never exposed to the browser
 - loyalty cart items are forced to zero price and carry loyalty metadata into the order
 - loyalty account block can expose current tier, points, coins and next-tier data from synced customer meta
+
+### Frontend personalizations
+
+- open **Loyalty Engage > Personalisaties** and enter the HTTPS URL of the official Loyalty Engage frontend script
+- add one rule per public personalization ID, with a unique shortcode key
+- select **Only shortcode** to place `[loyalty_engage_personalization id="pdp-punten"]` in a page or **Automatic** to show it on all product pages, the cart, checkout, or selected WordPress pages
+- enable **Customer data** only for personalizations that need a contact identifier; it is sent only for logged-in customers
+- enable **CartValue** for templates using `getOrderAward(cartValue)`; product variation and cart updates trigger a new render when the value changes
+- set the HTML insertion method in Loyalty Engage to replace the target's content for personalizations that update with `cartValue`
+- allow the shop domain in **Loyalty Engage > Developer > Frontend settings > Allowed domains**
+- the Loyalty Engage frontend script URL must be configured in WordPress; API credentials are not exposed to the browser
 
 ### Discount rewards
 
@@ -130,6 +142,7 @@ Admin page:
 - Free shipping tier settings
 - Frontend loyalty meta visibility and labels
 - Loyalty personalization toggle
+- Frontend personalization script URL and rules
 - Personalization tags
 - Personalization display mode
 
