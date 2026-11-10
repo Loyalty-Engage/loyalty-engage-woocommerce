@@ -33,11 +33,6 @@ class LEW_Settings
             'minimum_order_value' => '0',
             'minimum_order_value_message' => 'Je winkelmand moet minimaal {{minimum}} zijn om loyalty rewards toe te voegen. Huidig subtotaal: {{current}}.',
             'loyalty_product_removed_message' => 'Je loyalty reward is verwijderd omdat je winkelmand onder {{minimum}} is gekomen. Huidig subtotaal: {{current}}.',
-            'points_redemption_enabled' => 'no',
-            'points_per_currency_unit' => '1',
-            'min_points_to_redeem' => '1',
-            'max_points_per_order' => '0',
-            'max_discount_percentage' => '0',
             'pdp_points_enabled' => 'no',
             'pdp_points_per_currency_unit' => '1',
             'pdp_points_label' => 'Met dit product verdien je {{points}} punten.',
@@ -145,11 +140,6 @@ class LEW_Settings
             'minimum_order_value' => $sanitize_decimal($merged['minimum_order_value']),
             'minimum_order_value_message' => sanitize_textarea_field((string) $merged['minimum_order_value_message']),
             'loyalty_product_removed_message' => sanitize_textarea_field((string) $merged['loyalty_product_removed_message']),
-            'points_redemption_enabled' => $is_enabled($merged['points_redemption_enabled']),
-            'points_per_currency_unit' => (string) max(1, absint($merged['points_per_currency_unit'])),
-            'min_points_to_redeem' => (string) max(1, absint($merged['min_points_to_redeem'])),
-            'max_points_per_order' => $sanitize_int($merged['max_points_per_order']),
-            'max_discount_percentage' => (string) min(100, max(0, absint($merged['max_discount_percentage']))),
             'pdp_points_enabled' => $is_enabled($merged['pdp_points_enabled']),
             'pdp_points_per_currency_unit' => $sanitize_decimal($merged['pdp_points_per_currency_unit']),
             'pdp_points_label' => sanitize_text_field((string) $merged['pdp_points_label']),
@@ -270,21 +260,12 @@ class LEW_Settings
                         </td>
                     </tr>
                     <tr>
-                        <th scope="row">Points redemption</th>
+                        <th scope="row">Coins inwisselen</th>
                         <td>
-                            <label><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[points_redemption_enabled]" value="1" <?php checked($settings['points_redemption_enabled'], 'yes'); ?>> Enable points redemption in cart</label>
-                            <p class="description">Uses the Loyalty Engage redeem-points API and applies the returned coupon automatically in WooCommerce.</p>
-                            <input type="number" min="1" id="lew-points-per-currency-unit" name="<?php echo esc_attr(self::OPTION_KEY); ?>[points_per_currency_unit]" value="<?php echo esc_attr($settings['points_per_currency_unit']); ?>" class="small-text">
-                            <label for="lew-points-per-currency-unit"> Points per currency unit discount</label>
-                            <br>
-                            <input type="number" min="1" id="lew-min-points-to-redeem" name="<?php echo esc_attr(self::OPTION_KEY); ?>[min_points_to_redeem]" value="<?php echo esc_attr($settings['min_points_to_redeem']); ?>" class="small-text">
-                            <label for="lew-min-points-to-redeem"> Minimum points per redemption</label>
-                            <br>
-                            <input type="number" min="0" id="lew-max-points-per-order" name="<?php echo esc_attr(self::OPTION_KEY); ?>[max_points_per_order]" value="<?php echo esc_attr($settings['max_points_per_order']); ?>" class="small-text">
-                            <label for="lew-max-points-per-order"> Maximum points per order</label>
-                            <br>
-                            <input type="number" min="0" max="100" id="lew-max-discount-percentage" name="<?php echo esc_attr(self::OPTION_KEY); ?>[max_discount_percentage]" value="<?php echo esc_attr($settings['max_discount_percentage']); ?>" class="small-text">
-                            <label for="lew-max-discount-percentage"> Maximum discount percentage of cart subtotal</label>
+                            <p class="description">Coins worden ingewisseld via de cadeaus en cadeaubonnen in de loyaltyshop. Levelpunten zijn uitsluitend bedoeld voor voortgang naar het volgende level.</p>
+                            <?php if (($settings['points_redemption_enabled'] ?? 'no') === 'yes') : ?>
+                                <p><strong>Let op:</strong> de eerdere vrije puntenkorting is uitgeschakeld. Bestaande instellingen worden verwijderd zodra je deze pagina opslaat.</p>
+                            <?php endif; ?>
                         </td>
                     </tr>
                     <tr>

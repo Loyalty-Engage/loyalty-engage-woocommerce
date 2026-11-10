@@ -32,7 +32,8 @@ test('shows configured future levels and every catalog reward', async () => {
     status: 200,
     json: () => Promise.resolve({ matchedProducts: [
       { loyalty: { title: 'Later cadeau', product_type: 'physical', coinPrice: 50, requiredLoyaltyTierName: 'Goud' }, storefront: { claimable: false } },
-      { loyalty: { title: 'Verrassing', product_type: 'future_type', coinPrice: 100 } }
+      { loyalty: { title: 'Verrassing', product_type: 'future_type', coinPrice: 100 } },
+      { loyalty: { title: 'Cadeaubon', product_type: 'discount_code', coinPrice: 50, sku: 'GIFT-50' } }
     ] })
   });
 
@@ -42,9 +43,11 @@ test('shows configured future levels and every catalog reward', async () => {
   assert.equal(elements['lew-levels-section'].hidden, false);
   assert.deepEqual(children.levels.map((level) => level.innerHTML.match(/<strong>(.*?)<\/strong>/)[1]), ['Brons', 'Zilver', 'Goud']);
   assert.match(children.levels[1].className, /is-locked/);
-  assert.equal(children.rewards.length, 2);
+  assert.equal(children.rewards.length, 3);
   assert.match(children.rewards[0].innerHTML, /Later cadeau/);
   assert.match(children.rewards[0].innerHTML, /disabled/);
   assert.match(children.rewards[1].innerHTML, /Verrassing/);
   assert.match(children.rewards[1].innerHTML, /Binnenkort beschikbaar/);
+  assert.match(children.rewards[2].innerHTML, /Nog 40 coins nodig/);
+  assert.match(children.rewards[2].innerHTML, /disabled/);
 });

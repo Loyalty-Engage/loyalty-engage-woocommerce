@@ -14,10 +14,6 @@
   var pointsToNextTier = parseInt(el.dataset.pointsToNextTier || '0', 10) || 0;
   var nonce = window.lewRestNonce || '';
   var messageEl = document.getElementById('lew-message');
-  var pointsInput = document.getElementById('lew-points-input');
-  var pointsPreview = document.getElementById('lew-points-preview');
-  var pointsRedeemButton = document.getElementById('lew-points-redeem-button');
-  var pointsRemoveButton = document.getElementById('lew-points-remove-button');
 
   function showMessage(message, success) {
     if (!messageEl) return;
@@ -45,11 +41,6 @@
         return { ok: res.ok, status: res.status, data: {} };
       });
     });
-  }
-
-  function formatMoney(amount) {
-    var numeric = Number(amount || 0);
-    return '€' + numeric.toFixed(2).replace('.', ',');
   }
 
   function escapeHtml(value) {
@@ -277,87 +268,6 @@
     });
 
     container.appendChild(card);
-  }
-
-  function previewPointsRedemption() {
-    if (!pointsInput || !pointsPreview) return;
-
-    var points = parseInt(pointsInput.value || '0', 10) || 0;
-    if (points <= 0) {
-      pointsPreview.textContent = '-';
-      return;
-    }
-
-    request('/redeem-points/' + encodeURIComponent(customerId || customerEmail) + '/preview', {
-      method: 'POST',
-      body: JSON.stringify({ points: points })
-    }).then(function (result) {
-      if (!result.ok || !result.data || result.data.success === false) {
-        pointsPreview.textContent = '-';
-        return;
-      }
-
-      pointsPreview.textContent = formatMoney(result.data.discountAmount || 0);
-    }).catch(function () {
-      pointsPreview.textContent = '-';
-    });
-  }
-
-  if (pointsInput) {
-    pointsInput.addEventListener('input', previewPointsRedemption);
-    previewPointsRedemption();
-  }
-
-  if (pointsRedeemButton) {
-    pointsRedeemButton.addEventListener('click', function () {
-      var points = parseInt((pointsInput && pointsInput.value) || '0', 10) || 0;
-      pointsRedeemButton.disabled = true;
-      pointsRedeemButton.textContent = 'Verwerken...';
-
-      request('/redeem-points/' + encodeURIComponent(customerId || customerEmail), {
-        method: 'POST',
-        body: JSON.stringify({ points: points })
-      }).then(function (result) {
-        if (!result.ok || !result.data || result.data.success === false) {
-          pointsRedeemButton.disabled = false;
-          pointsRedeemButton.textContent = 'Punten inwisselen';
-          showMessage((result.data && result.data.message) || 'Punten konden niet worden ingewisseld.', false);
-          return;
-        }
-
-        showMessage((result.data && result.data.message) || 'Punten succesvol ingewisseld.', true);
-        window.location.href = '/cart';
-      }).catch(function () {
-        pointsRedeemButton.disabled = false;
-        pointsRedeemButton.textContent = 'Punten inwisselen';
-        showMessage('Netwerkfout bij punten inwisselen.', false);
-      });
-    });
-  }
-
-  if (pointsRemoveButton) {
-    pointsRemoveButton.addEventListener('click', function () {
-      pointsRemoveButton.disabled = true;
-      pointsRemoveButton.textContent = 'Verwerken...';
-
-      request('/redeem-points/' + encodeURIComponent(customerId || customerEmail), {
-        method: 'DELETE'
-      }).then(function (result) {
-        if (!result.ok || !result.data || result.data.success === false) {
-          pointsRemoveButton.disabled = false;
-          pointsRemoveButton.textContent = 'Puntenkorting verwijderen';
-          showMessage((result.data && result.data.message) || 'Puntenkorting kon niet worden verwijderd.', false);
-          return;
-        }
-
-        showMessage((result.data && result.data.message) || 'Puntenkorting verwijderd.', true);
-        window.location.href = '/cart';
-      }).catch(function () {
-        pointsRemoveButton.disabled = false;
-        pointsRemoveButton.textContent = 'Puntenkorting verwijderen';
-        showMessage('Netwerkfout bij verwijderen van puntenkorting.', false);
-      });
-    });
   }
 
   request('/products?includeAll=1&customerId=' + encodeURIComponent(customerId) + '&customerEmail=' + encodeURIComponent(customerEmail), {

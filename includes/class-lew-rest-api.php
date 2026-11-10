@@ -57,25 +57,25 @@ class LEW_Rest_API
 
         register_rest_route('loyalty-engage/v1', '/redeem-points/(?P<customer_ref>[^/]+)', [
             'methods' => 'POST',
-            'callback' => [self::class, 'redeem_points'],
+            'callback' => [self::class, 'legacy_points_redemption_disabled'],
             'permission_callback' => [self::class, 'can_access_customer_route'],
         ]);
 
         register_rest_route('loyalty-engage/v1', '/redeem-points/(?P<customer_ref>[^/]+)', [
             'methods' => 'DELETE',
-            'callback' => [self::class, 'remove_redeemed_points_discount'],
+            'callback' => [self::class, 'legacy_points_redemption_disabled'],
             'permission_callback' => [self::class, 'can_access_customer_route'],
         ]);
 
         register_rest_route('loyalty-engage/v1', '/redeem-points/(?P<customer_ref>[^/]+)/info', [
             'methods' => 'GET',
-            'callback' => [self::class, 'get_redeem_points_info'],
+            'callback' => [self::class, 'legacy_points_redemption_disabled'],
             'permission_callback' => [self::class, 'can_access_customer_route'],
         ]);
 
         register_rest_route('loyalty-engage/v1', '/redeem-points/(?P<customer_ref>[^/]+)/preview', [
             'methods' => 'POST',
-            'callback' => [self::class, 'preview_redeem_points'],
+            'callback' => [self::class, 'legacy_points_redemption_disabled'],
             'permission_callback' => [self::class, 'can_access_customer_route'],
         ]);
     }
@@ -327,136 +327,12 @@ class LEW_Rest_API
         return new WP_REST_Response(['success' => true, 'customerId' => $customer->ID]);
     }
 
-    public static function redeem_points(WP_REST_Request $request): WP_REST_Response
+    public static function legacy_points_redemption_disabled(WP_REST_Request $request): WP_REST_Response
     {
-        $guard = self::points_redemption_guard();
-        if ($guard instanceof WP_REST_Response) {
-            return $guard;
-        }
-
-        $customer = LEW_Storefront::resolve_customer((string) $request['customer_ref']);
-        if (!$customer) {
-            return new WP_REST_Response(['success' => false, 'message' => 'Customer not found'], 404);
-        }
-
-        $validation = self::validate_points_redemption_request($request, $customer->ID);
-        if ($validation instanceof WP_REST_Response) {
-            return $validation;
-        }
-
-        $payload = $request->get_json_params();
-        $points = (int) ($payload['points'] ?? 0);
-
-        $client = new LEW_Loyalty_Engage_Client();
-        $response = $client->request('/loyalty/shop/' . rawurlencode($customer->user_email) . '/redeem-points', 'POST', [
-            'points' => $points,
-            'cartSubtotal' => self::get_cart_subtotal(),
-        ]);
-
-        if (empty($response['success'])) {
-            return new WP_REST_Response(self::normalize_api_response($response), (int) $response['status']);
-        }
-
-        $body = is_array($response['body']) ? $response['body'] : [];
-        $discount_code = (string) ($body['discountCode'] ?? $body['discount_code'] ?? '');
-        if ($discount_code === '') {
-            return new WP_REST_Response(['success' => false, 'message' => 'Geen kortingscode ontvangen van Loyalty Engage.'], 500);
-        }
-
-        self::maybe_create_coupon('POINTS-REDEMPTION', $customer->user_email, [], $response);
-        $coupon_result = self::apply_coupon_to_cart($discount_code);
-        if ($coupon_result instanceof WP_Error) {
-            return new WP_REST_Response(['success' => false, 'message' => $coupon_result->get_error_message()], 400);
-        }
-
-        self::store_active_points_coupon($customer->ID, $discount_code);
-
-        $normalized = self::normalize_api_response($response);
-        $normalized['discountCode'] = $discount_code;
-        $normalized['pointsRedeemed'] = $points;
-
-        return new WP_REST_Response($normalized, 200);
-    }
-
-    public static function remove_redeemed_points_discount(WP_REST_Request $request): WP_REST_Response
-    {
-        $guard = self::points_redemption_guard();
-        if ($guard instanceof WP_REST_Response) {
-            return $guard;
-        }
-
-        $customer = LEW_Storefront::resolve_customer((string) $request['customer_ref']);
-        if (!$customer) {
-            return new WP_REST_Response(['success' => false, 'message' => 'Customer not found'], 404);
-        }
-
-        $client = new LEW_Loyalty_Engage_Client();
-        $response = $client->request('/loyalty/shop/' . rawurlencode($customer->user_email) . '/redeem-points', 'DELETE');
-
-        $coupon_code = self::get_active_points_coupon($customer->ID);
-        if ($coupon_code !== '' && function_exists('WC') && WC()->cart) {
-            WC()->cart->remove_coupon($coupon_code);
-        }
-        delete_user_meta($customer->ID, 'lew_active_points_coupon');
-
         return new WP_REST_Response([
-            'success' => !empty($response['success']),
-            'message' => !empty($response['message']) ? $response['message'] : 'Puntenkorting verwijderd.',
-        ], !empty($response['success']) ? 200 : (int) $response['status']);
-    }
-
-    public static function get_redeem_points_info(WP_REST_Request $request): WP_REST_Response
-    {
-        $guard = self::points_redemption_guard();
-        if ($guard instanceof WP_REST_Response) {
-            return $guard;
-        }
-
-        $customer = LEW_Storefront::resolve_customer((string) $request['customer_ref']);
-        if (!$customer) {
-            return new WP_REST_Response(['success' => false, 'message' => 'Customer not found'], 404);
-        }
-
-        $settings = LEW_Settings::get_settings();
-        return new WP_REST_Response([
-            'enabled' => true,
-            'availablePoints' => (int) LEW_Storefront::get_customer_loyalty_value($customer->ID, 'lew_points'),
-            'pointsPerCurrencyUnit' => (int) ($settings['points_per_currency_unit'] ?? 1),
-            'minPointsToRedeem' => (int) ($settings['min_points_to_redeem'] ?? 1),
-            'maxPointsPerOrder' => (int) ($settings['max_points_per_order'] ?? 0),
-            'maxDiscountPercentage' => (int) ($settings['max_discount_percentage'] ?? 0),
-            'activeCouponCode' => self::get_active_points_coupon($customer->ID),
-        ]);
-    }
-
-    public static function preview_redeem_points(WP_REST_Request $request): WP_REST_Response
-    {
-        $guard = self::points_redemption_guard();
-        if ($guard instanceof WP_REST_Response) {
-            return $guard;
-        }
-
-        $customer = LEW_Storefront::resolve_customer((string) $request['customer_ref']);
-        if (!$customer) {
-            return new WP_REST_Response(['success' => false, 'message' => 'Customer not found'], 404);
-        }
-
-        $validation = self::validate_points_redemption_request($request, $customer->ID);
-        if ($validation instanceof WP_REST_Response) {
-            return $validation;
-        }
-
-        $payload = $request->get_json_params();
-        $points = (int) ($payload['points'] ?? 0);
-        $settings = LEW_Settings::get_settings();
-        $discount = self::calculate_points_discount_amount($points, self::get_cart_subtotal(), $settings);
-
-        return new WP_REST_Response([
-            'success' => true,
-            'canRedeem' => true,
-            'points' => $points,
-            'discountAmount' => $discount,
-        ]);
+            'success' => false,
+            'message' => 'Levelpunten kunnen niet worden ingewisseld. Kies een cadeaubon met coins in de loyaltyshop.',
+        ], 410);
     }
 
     public static function can_access_customer_route(WP_REST_Request $request)
@@ -515,6 +391,10 @@ class LEW_Rest_API
 
     private static function maybe_store_discount_code(string $sku, string $email, array $response): void
     {
+        if (empty($response['success'])) {
+            return;
+        }
+
         global $wpdb;
 
         $body = is_array($response['body']) ? $response['body'] : [];
@@ -538,6 +418,10 @@ class LEW_Rest_API
     private static function maybe_create_coupon(string $sku, string $email, array $reward, array $response): array
     {
         $result = ['applied' => false, 'pending' => false];
+        if (empty($response['success'])) {
+            return $result;
+        }
+
         $body = is_array($response['body']) ? $response['body'] : [];
         $discount_code = (string) ($body['discountCode'] ?? $body['discount_code'] ?? '');
         if ($discount_code === '') {
@@ -707,97 +591,6 @@ class LEW_Rest_API
         return [
             'cart_item_key' => $cart_item_key,
         ];
-    }
-
-    private static function points_redemption_guard(): ?WP_REST_Response
-    {
-        if (!LEW_Settings::is_module_enabled()) {
-            return new WP_REST_Response(['success' => false, 'message' => 'Loyalty Engage module is disabled.'], 503);
-        }
-
-        $settings = LEW_Settings::get_settings();
-        if (($settings['points_redemption_enabled'] ?? 'no') !== 'yes') {
-            return new WP_REST_Response(['success' => false, 'message' => 'Points redemption is disabled.'], 403);
-        }
-
-        if (!function_exists('WC') || !WC()->cart) {
-            return new WP_REST_Response(['success' => false, 'message' => 'Winkelmand niet beschikbaar.'], 500);
-        }
-
-        return null;
-    }
-
-    private static function validate_points_redemption_request(WP_REST_Request $request, int $user_id): ?WP_REST_Response
-    {
-        $payload = $request->get_json_params();
-        $points = (int) ($payload['points'] ?? 0);
-        $settings = LEW_Settings::get_settings();
-        $available_points = (int) LEW_Storefront::get_customer_loyalty_value($user_id, 'lew_points');
-        $min_points = max(1, (int) ($settings['min_points_to_redeem'] ?? 1));
-        $max_points = (int) ($settings['max_points_per_order'] ?? 0);
-
-        if ($points < $min_points) {
-            return new WP_REST_Response(['success' => false, 'message' => sprintf('Je moet minimaal %d punten inwisselen.', $min_points)], 400);
-        }
-
-        if ($max_points > 0 && $points > $max_points) {
-            return new WP_REST_Response(['success' => false, 'message' => sprintf('Je kunt maximaal %d punten per bestelling inwisselen.', $max_points)], 400);
-        }
-
-        if ($available_points > 0 && $points > $available_points) {
-            return new WP_REST_Response(['success' => false, 'message' => 'Je hebt niet genoeg punten beschikbaar.'], 400);
-        }
-
-        return null;
-    }
-
-    private static function get_cart_subtotal(): float
-    {
-        if (!function_exists('WC') || !WC()->cart) {
-            return 0.0;
-        }
-
-        return round((float) WC()->cart->get_subtotal(), 2);
-    }
-
-    private static function calculate_points_discount_amount(int $points, float $subtotal, array $settings): float
-    {
-        $points_per_unit = max(1, (int) ($settings['points_per_currency_unit'] ?? 1));
-        $discount = $points / $points_per_unit;
-        $max_percentage = max(0, (int) ($settings['max_discount_percentage'] ?? 0));
-        if ($max_percentage > 0 && $subtotal > 0) {
-            $discount = min($discount, $subtotal * ($max_percentage / 100));
-        }
-
-        return round(max(0, $discount), 2);
-    }
-
-    private static function apply_coupon_to_cart(string $coupon_code)
-    {
-        if (!function_exists('WC') || !WC()->cart) {
-            return new WP_Error('lew_cart_unavailable', 'Cart is not available.');
-        }
-
-        if (WC()->cart->has_discount($coupon_code)) {
-            return true;
-        }
-
-        $applied = WC()->cart->apply_coupon($coupon_code);
-        if (!$applied) {
-            return new WP_Error('lew_apply_coupon_failed', 'Kortingscode kon niet automatisch worden toegepast.');
-        }
-
-        return true;
-    }
-
-    private static function store_active_points_coupon(int $user_id, string $coupon_code): void
-    {
-        update_user_meta($user_id, 'lew_active_points_coupon', $coupon_code);
-    }
-
-    private static function get_active_points_coupon(int $user_id): string
-    {
-        return (string) get_user_meta($user_id, 'lew_active_points_coupon', true);
     }
 
     private static function expand_loyalty_meta_keys(string $incoming_key): array

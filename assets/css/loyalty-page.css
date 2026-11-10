@@ -63,8 +63,7 @@
   gap: 16px;
 }
 
-.lew-meta,
-.lew-points {
+.lew-meta {
   border: 1px solid #ddd;
   border-radius: 10px;
   padding: 20px;
@@ -90,29 +89,6 @@
 .lew-meta__row dt,
 .lew-meta__row dd {
   margin: 0;
-}
-
-.lew-points__label {
-  display: block;
-  margin-bottom: 8px;
-}
-
-.lew-points__input {
-  width: 100%;
-  max-width: 240px;
-  padding: 10px 12px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-}
-
-.lew-points__preview {
-  margin: 14px 0;
-}
-
-.lew-points__actions {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
 }
 
 .lew-card {
@@ -165,7 +141,6 @@
 }
 
 .lew-card button,
-.lew-points__actions button,
 .lew-button-secondary {
   background: #111;
   color: #fff;
@@ -175,8 +150,7 @@
   cursor: pointer;
 }
 
-.lew-card button[disabled],
-.lew-points__actions button[disabled] {
+.lew-card button[disabled] {
   opacity: .6;
   cursor: not-allowed;
 }

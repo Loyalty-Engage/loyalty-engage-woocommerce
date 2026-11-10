@@ -10,7 +10,7 @@ WooCommerce plugin project that mirrors the main Loyalty Engage Shopify app capa
 - loyalty rewards lookup from Loyalty Engage
 - physical reward reservation and cart insertion
 - WooCommerce coupon creation for claimed loyalty discount codes
-- points redemption with coupon auto-apply and preview support
+- coin-priced gift cards and physical rewards; level points are never spent
 - loyalty tier based free shipping
 - review export to Loyalty Engage via outbox
 - customer loyalty metadata sync into WordPress user meta
@@ -57,6 +57,7 @@ woocommerce-loyalty-engage/
 - rewards are matched against WooCommerce products by SKU, variation id, barcode fallback and title fallback
 - gift cards and physical gifts are presented together in one rewards overview with clear type labels
 - rewards remain visible when the customer still needs more coins or a higher loyalty level
+- the overview shows the synced coin balance (`lew_availableCoins`); `lew_points` is used only for levels
 - physical rewards without a WooCommerce product match remain visible as upcoming rewards but cannot be claimed yet
 - current, achieved and upcoming loyalty levels are shown as level badges; configure the complete ordered level list in **Loyalty Engage > Loyalty levels** (`Name|points` per line) so levels without a reward are also visible
 - the overview requests the unfiltered catalog and renders every returned reward, including unknown reward types as non-claimable cards; Loyalty Engage must include future rewards in its catalog response for them to appear
@@ -99,7 +100,7 @@ woocommerce-loyalty-engage/
 - the real WooCommerce cart URL remains available to new personalization blocks as `window.lewWooCommerce.actualCartUrl`
 - in WooCommerce coupon mode, a matching coupon is created or updated automatically
 - order completion marks claimed Loyalty Engage discount codes as redeemed
-- points redemption can preview discount, redeem points to a WooCommerce coupon and remove the active points coupon again
+- the former free-amount points redemption form is retired; coin-priced discount rewards use the existing reward claim flow
 
 ### Free shipping
 
@@ -138,7 +139,7 @@ Admin page:
 - Max loyalty products per cart
 - Minimum non-loyalty subtotal
 - Minimum subtotal error messages
-- Points redemption settings
+- Coin redemption guidance (legacy points-redemption settings are removed on save)
 - Product page earning-points toggle, rate and label
 - Free shipping tier settings
 - Frontend loyalty meta visibility and labels
@@ -155,10 +156,7 @@ Admin page:
 - `POST /wp-json/loyalty-engage/v1/physical-redeem/{sku}/{customer_ref}`
 - `POST /wp-json/loyalty-engage/v1/cart-remove/{sku}/{customer_ref}`
 - `POST /wp-json/loyalty-engage/v1/customer-update`
-- `POST /wp-json/loyalty-engage/v1/redeem-points/{customer_ref}`
-- `DELETE /wp-json/loyalty-engage/v1/redeem-points/{customer_ref}`
-- `GET /wp-json/loyalty-engage/v1/redeem-points/{customer_ref}/info`
-- `POST /wp-json/loyalty-engage/v1/redeem-points/{customer_ref}/preview`
+- Legacy `/redeem-points` routes return HTTP 410; use coin-priced rewards through `/discount/{sku}/{customer_ref}` instead
 
 ## Database tables
 
@@ -202,7 +200,7 @@ git push origin v1.5.8
 5. Test one paid order, one guest order and one refund.
 6. Test one discount reward claim and validate the WooCommerce coupon.
 7. Test one physical reward claim and verify zero pricing in cart and order.
-8. Test points redemption preview, apply and remove flow in cart.
+8. Test a coin-priced discount reward claim and verify that level points remain unchanged.
 9. Test tier-based free shipping with qualifying and non-qualifying customers.
 10. Test loyalty personalization with enabled and disabled states.
 11. Test approved review export and confirm the review outbox drains correctly.
@@ -213,6 +211,6 @@ This project is hardened substantially, but still needs full platform validation
 
 - HPOS compatibility validation on the target WooCommerce version
 - real checkout and refund flow validation with the merchant theme
-- final validation of the Loyalty Engage `redeem-points` response contract in the target environment
+- confirm coin-priced reward balance and claim behavior against the target Loyalty Engage tenant
 - final decision on guest checkout behavior for loyalty exports
 - any merchant-specific barcode plugin compatibility

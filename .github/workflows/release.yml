@@ -23,6 +23,19 @@ jobs:
           tag_version="${GITHUB_REF_NAME#v}"
           test -n "$plugin_version"
           test "$plugin_version" = "$tag_version"
+          header_version="$(sed -n 's/^ \* Version: //p' loyalty-engage-woocommerce.php)"
+          test "$header_version" = "$plugin_version"
+
+      - name: Run release checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l loyalty-engage-woocommerce.php
+          while IFS= read -r -d '' file; do php -l "$file"; done < <(find includes tests -name '*.php' -print0)
+          for test in tests/*.php; do php "$test"; done
+          for script in assets/js/*.js; do node --check "$script"; done
+          node --test tests/*.test.cjs
+          git diff --check
 
       - name: Build installable plugin ZIP
         shell: bash
