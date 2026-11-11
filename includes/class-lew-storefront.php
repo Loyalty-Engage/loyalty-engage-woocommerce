@@ -209,12 +209,17 @@ class LEW_Storefront
 
         $user = wp_get_current_user();
         wp_enqueue_style('lew-loyalty-page');
+        $settings = LEW_Settings::get_settings();
+        $custom_css = LEW_Settings::sanitize_custom_css((string) ($settings['loyalty_custom_css'] ?? ''));
+        if ($custom_css !== '') {
+            wp_add_inline_style('lew-loyalty-page', $custom_css);
+        }
         wp_enqueue_script('lew-loyalty-page');
         wp_add_inline_script('lew-loyalty-page', 'window.lewRestNonce = ' . wp_json_encode(wp_create_nonce('wp_rest')) . ';', 'before');
         wp_add_inline_script('lew-loyalty-page', 'window.lewLoyaltyLevels = ' . wp_json_encode(self::parse_loyalty_levels((string) (LEW_Settings::get_settings()['loyalty_levels'] ?? '')), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . ';', 'before');
 
         return sprintf(
-            '<div id="lew-loyalty-page" data-customer-id="%1$d" data-customer-email="%2$s" data-api-base="%3$s" data-coins="%4$s" data-points="%5$s" data-current-tier="%6$s" data-next-tier="%7$s" data-points-to-next-tier="%8$s"><div id="lew-meta-block">%9$s</div><div id="lew-levels-section" class="lew-section" hidden><h2>Jouw levels</h2><p class="lew-section__intro">Bekijk welke levels je al hebt bereikt en welke nog voor je liggen.</p><div id="lew-levels" class="lew-levels"></div></div><div id="lew-rewards-section" class="lew-section"><h2>Cadeaus en cadeaubonnen</h2><p class="lew-section__intro">Je hebt <strong>%4$s coins</strong> om in te wisselen. Ontdek alle rewards, ook wanneer je nog coins of een hoger level nodig hebt.</p><div id="lew-rewards-grid" class="lew-rewards-grid"><p>Rewards laden...</p></div></div><div id="lew-message" class="lew-message" aria-live="polite"></div></div>',
+            '<div id="lew-loyalty-page" data-customer-id="%1$d" data-customer-email="%2$s" data-api-base="%3$s" data-coins="%4$s" data-points="%5$s" data-current-tier="%6$s" data-next-tier="%7$s" data-points-to-next-tier="%8$s"><div id="lew-meta-block">%9$s</div><div id="lew-levels-section" class="lew-section" hidden>%10$s<div id="lew-levels" class="lew-levels"></div></div><div id="lew-rewards-section" class="lew-section">%11$s<div id="lew-rewards-grid" class="lew-rewards-grid"><p>Rewards laden...</p></div></div><div id="lew-message" class="lew-message" aria-live="polite"></div></div>',
             (int) $user->ID,
             esc_attr($user->user_email),
             esc_url(rest_url('loyalty-engage/v1')),
@@ -223,8 +228,16 @@ class LEW_Storefront
             esc_attr((string) self::get_customer_loyalty_value($user->ID, 'lew_current_tier')),
             esc_attr((string) self::get_customer_loyalty_value($user->ID, 'lew_next_tier')),
             esc_attr((string) self::get_customer_loyalty_value($user->ID, 'lew_points_to_next_tier')),
-            self::render_loyalty_meta_block($user->ID)
+            self::render_loyalty_meta_block($user->ID),
+            self::render_section_heading($settings['levels_title'], $settings['levels_intro']),
+            self::render_section_heading($settings['rewards_title'], str_replace('{{coins}}', number_format_i18n((float) self::get_customer_loyalty_value($user->ID, 'lew_availableCoins')), $settings['rewards_intro']))
         );
+    }
+
+    public static function render_section_heading(string $title, string $intro): string
+    {
+        return ($title !== '' ? '<h2>' . esc_html($title) . '</h2>' : '') .
+            ($intro !== '' ? '<p class="lew-section__intro">' . nl2br(esc_html($intro)) . '</p>' : '');
     }
 
     public static function parse_loyalty_levels(string $input): array

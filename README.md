@@ -52,6 +52,8 @@ woocommerce-loyalty-engage/
 
 ### Storefront rewards
 
+- Under **Loyalty Engage > Teksten loyaltypagina**, configure the level and reward titles and subtitles. Use `{{coins}}` in the reward subtitle for the redeemable balance. Empty text hides that heading or subtitle.
+- **Eigen CSS loyaltypagina** accepts CSS without style tags. Prefix selectors with `#lew-loyalty-page` to avoid affecting the surrounding theme. These settings apply to `[loyalty_engage_page]`, not external personalization templates.
 - frontend page uses shortcode `[loyalty_engage_page]`
 - rewards are fetched from Loyalty Engage
 - rewards are matched against WooCommerce products by SKU, variation id, barcode fallback and title fallback

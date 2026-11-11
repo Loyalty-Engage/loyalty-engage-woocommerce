@@ -40,6 +40,11 @@ class LEW_Settings
             'free_shipping_tiers' => '',
             'expose_customer_meta' => 'yes',
             'account_block_title' => 'Loyalty overzicht',
+            'levels_title' => 'Jouw titel',
+            'levels_intro' => 'Bekijk welke levels je al hebt bereikt en welke nog voor je liggen.',
+            'rewards_title' => 'Cadeaus en cadeaubonnen',
+            'rewards_intro' => 'Je hebt {{coins}} coins om in te wisselen. Ontdek alle rewards, ook wanneer je nog coins of een hoger level nodig hebt.',
+            'loyalty_custom_css' => '',
             'le_current_tier_enabled' => 'yes',
             'le_current_tier_label' => 'Huidige tier',
             'le_points_enabled' => 'yes',
@@ -147,6 +152,11 @@ class LEW_Settings
             'free_shipping_tiers' => sanitize_text_field((string) $merged['free_shipping_tiers']),
             'expose_customer_meta' => $is_enabled($merged['expose_customer_meta']),
             'account_block_title' => sanitize_text_field((string) $merged['account_block_title']),
+            'levels_title' => sanitize_text_field((string) $merged['levels_title']),
+            'levels_intro' => sanitize_textarea_field((string) $merged['levels_intro']),
+            'rewards_title' => sanitize_text_field((string) $merged['rewards_title']),
+            'rewards_intro' => sanitize_textarea_field((string) $merged['rewards_intro']),
+            'loyalty_custom_css' => self::sanitize_custom_css((string) $merged['loyalty_custom_css']),
             'le_current_tier_enabled' => $is_enabled($merged['le_current_tier_enabled']),
             'le_current_tier_label' => sanitize_text_field((string) $merged['le_current_tier_label']),
             'le_points_enabled' => $is_enabled($merged['le_points_enabled']),
@@ -166,6 +176,12 @@ class LEW_Settings
             'loyalty_shop_display_mode' => $merged['loyalty_shop_display_mode'] === 'only_matching' ? 'only_matching' : 'prioritize_matches',
             'loyalty_levels' => sanitize_textarea_field((string) $merged['loyalty_levels']),
         ];
+    }
+
+    public static function sanitize_custom_css(string $css): string
+    {
+        // Never allow custom CSS to close the inline style element.
+        return str_replace('<', '', wp_strip_all_tags($css));
     }
 
     public static function is_module_enabled(): bool
@@ -296,6 +312,23 @@ class LEW_Settings
                             <p class="description">Displays stored loyalty customer data on the loyalty page.</p>
                             <input id="lew-account-block-title" name="<?php echo esc_attr(self::OPTION_KEY); ?>[account_block_title]" value="<?php echo esc_attr($settings['account_block_title']); ?>" class="regular-text">
                             <p class="description">Block title.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Teksten loyaltypagina</th>
+                        <td>
+                            <?php foreach (['levels_title' => 'Titel levels', 'levels_intro' => 'Ondertitel levels', 'rewards_title' => 'Titel rewards', 'rewards_intro' => 'Ondertitel rewards'] as $key => $label) : ?>
+                                <p><label for="lew-<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></label></p>
+                                <textarea id="lew-<?php echo esc_attr($key); ?>" name="<?php echo esc_attr(self::OPTION_KEY); ?>[<?php echo esc_attr($key); ?>]" class="large-text" rows="2"><?php echo esc_textarea($settings[$key]); ?></textarea>
+                            <?php endforeach; ?>
+                            <p class="description">Gebruik {{coins}} in de reward-ondertitel voor het inwisselbare saldo. Lege teksten worden niet getoond. Dit geldt voor [loyalty_engage_page], niet voor externe personalisatietemplates.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="lew-custom-css">Eigen CSS loyaltypagina</label></th>
+                        <td>
+                            <textarea id="lew-custom-css" name="<?php echo esc_attr(self::OPTION_KEY); ?>[loyalty_custom_css]" class="large-text code" rows="8"><?php echo esc_textarea($settings['loyalty_custom_css']); ?></textarea>
+                            <p class="description">Alleen CSS, zonder &lt;style&gt;-tags. Begin selectors met <code>#lew-loyalty-page</code> om andere onderdelen van de pagina niet te wijzigen. Bijvoorbeeld: <code>#lew-loyalty-page .lew-card { border-radius: 20px; }</code></p>
                         </td>
                     </tr>
                     <tr>
