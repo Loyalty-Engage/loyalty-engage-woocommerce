@@ -78,9 +78,9 @@ class LEW_Storefront
     {
         $page_type = $requested_page_type;
         if ($page_type === '') {
-            $page_type = is_product() ? 'product' : (is_cart() ? 'cart' : (is_checkout() && !is_order_received_page() ? 'checkout' : 'other'));
+            $page_type = is_order_received_page() ? 'thankyou' : (is_product() ? 'product' : (is_cart() ? 'cart' : (is_checkout() ? 'checkout' : 'other')));
         }
-        if (!in_array($page_type, ['product', 'cart', 'checkout', 'other'], true)) {
+        if (!in_array($page_type, ['product', 'cart', 'checkout', 'thankyou', 'other'], true)) {
             $page_type = 'other';
         }
 
@@ -124,6 +124,21 @@ class LEW_Storefront
                     'maxPrice' => self::format_context_amount($maximum_price),
                     'variationId' => 0,
                 ];
+            }
+        } elseif ($page_type === 'thankyou' && is_order_received_page()) {
+            $order_id = absint(get_query_var('order-received'));
+            $key = isset($_GET['key']) && is_string($_GET['key']) ? sanitize_text_field(wp_unslash($_GET['key'])) : '';
+            $order = $order_id > 0 ? wc_get_order($order_id) : false;
+            // Never expose order values solely from a guessable order ID.
+            if ($order instanceof WC_Order && $key !== '' && hash_equals($order->get_order_key(), $key) &&
+                ((int) $order->get_customer_id() === 0 || (is_user_logged_in() && (int) $order->get_customer_id() === get_current_user_id()))) {
+                $total = 0.0;
+                foreach ($order->get_items('line_item') as $item) {
+                    $total += (float) $item->get_total();
+                }
+                $context['cartValue'] = self::format_context_amount(max(0, $total));
+                $context['cartValueBasis'] = 'discounted_order_items_excluding_tax';
+                $context['currency'] = $order->get_currency();
             }
         } elseif (in_array($page_type, ['cart', 'checkout'], true) && function_exists('WC') && WC()->cart instanceof WC_Cart) {
             $context['cartValue'] = self::format_context_amount((float) WC()->cart->get_cart_contents_total());

@@ -83,6 +83,8 @@ woocommerce-loyalty-engage/
 
 ### Frontend personalizations
 
+- Order-received pages expose `pageType: "thankyou"` and the discounted order-item total as `cartValue` (excluding tax, shipping and fees), using the order currency. A valid order key is required; registered-customer orders additionally require that customer to be logged in. Unverified orders expose no amount. Select **Automatisch > Bedankpagina** for automatic placement, or place a shortcode in the confirmation content. Enable CartValue on the personalization rule; this estimate does not confirm points have been awarded.
+
 - Explicit personalization shortcodes ignore automatic page-placement restrictions. They remain subject to the module/rule being enabled and, in the multisite edition, shop targeting. Supported contexts include normal shortcode content, HTML blocks/widgets, WooCommerce short descriptions and product-summary/excerpt blocks. The template still needs appropriate context: a PDP-only template that requires a positive cartValue will not render on a generic page without product/cart context.
 
 - The tenant module and synchronous queue bootstrap load once in the document head when this shop has a configured tenant and at least one active rule. Slot triggers stay in the footer, so shortcodes discovered after the head still work. Multisite targeting is applied before deciding whether a shop loads the engine.
