@@ -36,3 +36,12 @@ if (!str_contains($tag, 'type="module" async') || str_contains($tag, 'text/javas
 }
 
 echo "Personalization tenant tests passed.\n";
+
+$combined = '<script id="before">window._lecloud={personalization:[]};</script><script id="engine" src="example.js"></script><script id="after">after();</script>';
+$rendered = LEW_Personalizations::module_script_tag($combined, 'lew-personalization-base');
+if (!str_contains($rendered, '<script id="before">') || !str_contains($rendered, '<script type="module" async id="engine"') || !str_contains($rendered, '<script id="after">')) {
+    throw new RuntimeException('Inline queue initialization must stay synchronous; only the external engine may be a module.');
+}
+if (LEW_Personalizations::module_script_tag($rendered, 'lew-personalization-base') !== $rendered) {
+    throw new RuntimeException('Module filtering must not duplicate async/type attributes.');
+}

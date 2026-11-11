@@ -136,15 +136,16 @@
     if (!requiredTier) return true;
     if (normalizeTier(requiredTier) === normalizeTier(currentTier)) return true;
 
-    var currentIndex = levels.findIndex(function (level) {
+    var current = levels.find(function (level) {
       return normalizeTier(level.name) === normalizeTier(currentTier);
     });
-    var requiredIndex = levels.findIndex(function (level) {
+    var required = levels.find(function (level) {
       return normalizeTier(level.name) === normalizeTier(requiredTier);
     });
 
-    if (currentIndex >= 0 && requiredIndex >= 0) {
-      return currentIndex >= requiredIndex;
+    // Only configured ranks define progression; discovered levels have no known rank.
+    if (current && required && Number.isInteger(current.configuredIndex) && Number.isInteger(required.configuredIndex)) {
+      return current.configuredIndex >= required.configuredIndex;
     }
 
     return false;
@@ -155,14 +156,10 @@
     var container = document.getElementById('lew-levels');
     if (!section || !container || levels.length === 0) return;
 
-    var currentIndex = levels.findIndex(function (level) {
-      return normalizeTier(level.name) === normalizeTier(currentTier);
-    });
-
     container.innerHTML = '';
-    levels.forEach(function (level, index) {
+    levels.forEach(function (level) {
       var isCurrent = normalizeTier(level.name) === normalizeTier(currentTier);
-      var isReached = isCurrent || (currentIndex >= 0 && index <= currentIndex);
+      var isReached = hasReachedTier(level.name, levels);
       var badge = document.createElement('div');
       badge.className = 'lew-level' + (isReached ? ' is-reached' : ' is-locked') + (isCurrent ? ' is-current' : '');
       badge.innerHTML =

@@ -83,6 +83,10 @@ woocommerce-loyalty-engage/
 
 ### Frontend personalizations
 
+- Explicit personalization shortcodes ignore automatic page-placement restrictions. They remain subject to the module/rule being enabled and, in the multisite edition, shop targeting. Supported contexts include normal shortcode content, HTML blocks/widgets, WooCommerce short descriptions and product-summary/excerpt blocks. The template still needs appropriate context: a PDP-only template that requires a positive cartValue will not render on a generic page without product/cart context.
+
+- The tenant module and synchronous queue bootstrap load once in the document head when this shop has a configured tenant and at least one active rule. Slot triggers stay in the footer, so shortcodes discovered after the head still work. Multisite targeting is applied before deciding whether a shop loads the engine.
+
 - open **Loyalty Engage > Personalisaties** and paste the tenant-specific `<script>...</script>` loader from Loyalty Engage, or enter its tenant UUID; the plugin stores only the UUID and loads `https://le-cloud.app/f/t/<tenant-UUID>.js` as a module
 - add one rule per public personalization ID, with a unique shortcode key
 - select **Only shortcode** to place `[loyalty_engage_personalization id="pdp-punten"]` in a page or **Automatic** to show it on all product pages, the cart, checkout, or selected WordPress pages

@@ -76,7 +76,7 @@
       return currentIndex >= requiredIndex;
     }
 
-    return requiredPoints > 0 && number(config.points) >= requiredPoints;
+    return false;
   }
 
   function setText(element, text) {
@@ -92,7 +92,7 @@
     levels.forEach(function (level, index) {
       var requiredPoints = number(level.dataset.lewRequiredPoints);
       var isCurrent = normalize(level.dataset.lewLevel) === normalize(config.currentTier);
-      var isReached = isCurrent || (requiredPoints > 0 && number(config.points) >= requiredPoints) || (currentIndex >= 0 && index <= currentIndex);
+      var isReached = isCurrent || (currentIndex >= 0 && index <= currentIndex);
       var status = level.querySelector('[data-lew-level-status]');
 
       level.classList.toggle('is-current', isCurrent);

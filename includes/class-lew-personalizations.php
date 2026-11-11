@@ -15,6 +15,12 @@ class LEW_Personalizations
         add_action('admin_menu', [self::class, 'register_menu']);
         add_action('admin_post_lew_save_personalizations', [self::class, 'save']);
         add_shortcode('loyalty_engage_personalization', [self::class, 'shortcode']);
+        add_filter('woocommerce_short_description', [self::class, 'render_inline_shortcodes'], 20);
+        add_filter('render_block_woocommerce/product-summary', [self::class, 'render_inline_shortcodes'], 20);
+        add_filter('render_block_core/html', [self::class, 'render_inline_shortcodes'], 20);
+        add_filter('render_block_core/post-excerpt', [self::class, 'render_inline_shortcodes'], 20);
+        add_filter('widget_custom_html_content', [self::class, 'render_inline_shortcodes'], 20);
+        add_action('wp_enqueue_scripts', [self::class, 'enqueue_base_script'], 20);
         add_action('wp_enqueue_scripts', [self::class, 'enqueue_for_auto_pages'], 30);
         add_filter('script_loader_tag', [self::class, 'module_script_tag'], 10, 2);
         add_action('woocommerce_single_product_summary', [self::class, 'render_product_auto'], 35);
@@ -132,7 +138,7 @@ class LEW_Personalizations
             <?php if (isset($_GET['updated']) && $_GET['updated'] === 'true') : ?><div class="notice notice-success"><p>Personalisaties opgeslagen.</p></div><?php endif; ?>
             <?php if (isset($_GET['updated']) && $_GET['updated'] === 'invalid-tenant') : ?><div class="notice notice-error"><p>Geen geldige tenant-ID gevonden. De vorige tenant-ID is behouden. Plak de officiële loader-snippet of vul alleen de UUID in.</p></div><?php endif; ?>
             <?php if ($settings['tenant_id'] === '' && array_filter($settings['rules'], static fn (array $rule): bool => $rule['enabled'] === 'yes')) : ?><div class="notice notice-warning"><p>Voeg de Loyalty Engage-loader-snippet of tenant-ID toe om actieve personalisaties te tonen.</p></div><?php endif; ?>
-            <p>Gebruik de public ID uit Loyalty Engage. Het basisscript wordt eenmaal geladen op pagina's waar een actieve personalisatie staat. De bestaande loyaltyshop-personalisatie-instellingen staan los van deze functie.</p>
+            <p>Gebruik de public ID uit Loyalty Engage. Bij een ingestelde tenant en actieve regels laadt het basisscript eenmaal in de head van deze shop. Triggers worden alleen uitgevoerd voor de geplaatste personalisatieblokken. De bestaande loyaltyshop-personalisatie-instellingen staan los van deze functie.</p>
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                 <input type="hidden" name="action" value="lew_save_personalizations">
                 <?php wp_nonce_field('lew_save_personalizations'); ?>
@@ -207,6 +213,15 @@ class LEW_Personalizations
             <button type="button" class="button-link-delete" data-lew-remove-rule>Verwijderen</button>
         </fieldset>
         <?php
+    }
+
+    public static function render_inline_shortcodes(string $content): string
+    {
+        if (!str_contains($content, '[loyalty_engage_personalization')) {
+            return $content;
+        }
+        // Process only our shortcode in contexts that do not normally expand shortcodes.
+        return preg_replace_callback('/' . get_shortcode_regex(['loyalty_engage_personalization']) . '/s', 'do_shortcode_tag', $content);
     }
 
     public static function shortcode(array $atts = []): string
@@ -285,21 +300,37 @@ class LEW_Personalizations
         return '<div id="' . esc_attr($id) . '" class="lew-personalization-slot" data-lew-personalization="' . esc_attr($key) . '"></div>';
     }
 
+    public static function enqueue_base_script(): bool
+    {
+        if (!LEW_Settings::is_module_enabled()) {
+            return false;
+        }
+        $settings = self::get_settings();
+        $active_rules = array_filter($settings['rules'], static fn (array $rule): bool => ($rule['enabled'] ?? 'no') === 'yes');
+        if ($settings['tenant_id'] === '' || !$active_rules) {
+            return false;
+        }
+        // Load before content rendering: shortcode/page-builder slots may appear after wp_head.
+        if (!wp_script_is('lew-personalization-base', 'registered')) {
+            $base_url = 'https://le-cloud.app/f/t/' . $settings['tenant_id'] . '.js';
+            wp_register_script('lew-personalization-base', $base_url, [], null, false);
+            wp_add_inline_script('lew-personalization-base', 'window._lecloud=window._lecloud||{event:[],personalization:[]};window._lecloud.event=window._lecloud.event||[];window._lecloud.personalization=window._lecloud.personalization||[];', 'before');
+        }
+        wp_enqueue_script('lew-personalization-base');
+        return true;
+    }
+
     private static function enqueue_scripts(): void
     {
         if (self::$scripts_enqueued) {
             return;
         }
         $settings = self::get_settings();
-        if ($settings['tenant_id'] === '') {
+        if (!self::enqueue_base_script()) {
             return;
         }
         self::$scripts_enqueued = true;
         wp_enqueue_script('lew-storefront-bridge');
-        $base_url = 'https://le-cloud.app/f/t/' . $settings['tenant_id'] . '.js';
-        wp_register_script('lew-personalization-base', $base_url, [], null, true);
-        wp_add_inline_script('lew-personalization-base', 'window._lecloud=window._lecloud||{event:[],personalization:[]};window._lecloud.event=window._lecloud.event||[];window._lecloud.personalization=window._lecloud.personalization||[];', 'before');
-        wp_enqueue_script('lew-personalization-base');
         wp_register_script('lew-personalizations', LEW_PLUGIN_URL . 'assets/js/personalizations.js', ['lew-storefront-bridge', 'lew-personalization-base'], LEW_PLUGIN_VERSION, true);
         $rules = array_values(array_filter($settings['rules'], static fn (array $rule): bool => $rule['enabled'] === 'yes'));
         wp_add_inline_script('lew-personalizations', 'window.lewPersonalizationRules=' . wp_json_encode($rules, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . ';', 'before');
@@ -311,7 +342,11 @@ class LEW_Personalizations
         if ($handle !== 'lew-personalization-base') {
             return $tag;
         }
-        $tag = preg_replace('~\s+type=(["\']).*?\1~i', '', $tag);
-        return preg_replace('~<script\b~i', '<script type="module" async', $tag, 1);
+        // WordPress includes inline-before/after tags here. Only the external engine is a module.
+        return preg_replace_callback('~<script\b(?=[^>]*\bsrc\s*=)[^>]*>~i', static function (array $match): string {
+            $external = preg_replace('~\s+type=(["\']).*?\1~i', '', $match[0]);
+            $external = preg_replace('~\s+async(?:=(["\']).*?\1)?(?=\s|>)~i', '', $external);
+            return preg_replace('~<script\b~i', '<script type="module" async', $external, 1);
+        }, $tag);
     }
 }
